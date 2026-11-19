@@ -144,6 +144,47 @@ fun AddConnectionSheet(
         }
       }
 
+      // pCloud region presets
+      if (protocol == NetworkProtocol.WEBDAV) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          Text("pCloud region", style = MaterialTheme.typography.labelLarge)
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            TextButton(
+              onClick = {
+                name = "pCloud (US)"
+                protocol = NetworkProtocol.WEBDAV
+                host = "webdav.pcloud.com"
+                port = "443"
+                path = "/"
+                isAnonymous = false
+                useHttps = true
+              },
+              modifier = Modifier.weight(1f),
+            ) { Text("United States") }
+            TextButton(
+              onClick = {
+                name = "pCloud (Europe)"
+                protocol = NetworkProtocol.WEBDAV
+                host = "ewebdav.pcloud.com"
+                port = "443"
+                path = "/"
+                isAnonymous = false
+                useHttps = true
+              },
+              modifier = Modifier.weight(1f),
+            ) { Text("Europe") }
+          }
+          Text(
+            "Choose your pCloud data region, then enter your pCloud email and password below.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+      }
+
       // Host
       OutlinedTextField(
         value = host,
