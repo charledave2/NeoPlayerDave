@@ -25,33 +25,33 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AspectRatio
-import androidx.compose.material.icons.filled.Audiotrack
-import androidx.compose.material.icons.filled.Bookmarks
-import androidx.compose.material.icons.filled.Camera
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.FastForward
-import androidx.compose.material.icons.filled.FastRewind
-import androidx.compose.material.icons.filled.FitScreen
-import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PictureInPictureAlt
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.RepeatOn
-import androidx.compose.material.icons.filled.RepeatOne
-import androidx.compose.material.icons.filled.ScreenRotation
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.ShuffleOn
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Subtitles
-import androidx.compose.material.icons.filled.ZoomIn
-import androidx.compose.material.icons.filled.ZoomOutMap
-import androidx.compose.material.icons.filled.Flip
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material.icons.filled.Headset
-import androidx.compose.material.icons.filled.BlurOn
+import androidx.compose.material.icons.automirrored.twotone.ArrowBack
+import androidx.compose.material.icons.twotone.AspectRatio
+import androidx.compose.material.icons.twotone.Audiotrack
+import androidx.compose.material.icons.twotone.Bookmarks
+import androidx.compose.material.icons.twotone.Camera
+import androidx.compose.material.icons.twotone.CameraAlt
+import androidx.compose.material.icons.twotone.FastForward
+import androidx.compose.material.icons.twotone.FastRewind
+import androidx.compose.material.icons.twotone.FitScreen
+import androidx.compose.material.icons.twotone.LockOpen
+import androidx.compose.material.icons.twotone.MoreVert
+import androidx.compose.material.icons.twotone.PictureInPictureAlt
+import androidx.compose.material.icons.twotone.Repeat
+import androidx.compose.material.icons.twotone.RepeatOn
+import androidx.compose.material.icons.twotone.RepeatOne
+import androidx.compose.material.icons.twotone.ScreenRotation
+import androidx.compose.material.icons.twotone.Shuffle
+import androidx.compose.material.icons.twotone.ShuffleOn
+import androidx.compose.material.icons.twotone.Speed
+import androidx.compose.material.icons.twotone.Subtitles
+import androidx.compose.material.icons.twotone.ZoomIn
+import androidx.compose.material.icons.twotone.ZoomOutMap
+import androidx.compose.material.icons.twotone.Flip
+import androidx.compose.material.icons.twotone.Close
+import androidx.compose.material.icons.twotone.PlayCircle
+import androidx.compose.material.icons.twotone.Headset
+import androidx.compose.material.icons.twotone.BlurOn
 import androidx.compose.material.icons.outlined.BlurOn
 import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.ui.draw.rotate
@@ -112,7 +112,7 @@ fun RenderPlayerButton(
   when (button) {
     PlayerButton.BACK_ARROW -> {
       ControlsButton(
-        icon = Icons.AutoMirrored.Default.ArrowBack,
+        icon = Icons.AutoMirrored.TwoTone.ArrowBack,
         onClick = onBackPress,
         color = if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.size(buttonSize),
@@ -201,7 +201,7 @@ fun RenderPlayerButton(
     PlayerButton.BOOKMARKS_CHAPTERS -> {
       if (chapters.isNotEmpty()) {
         ControlsButton(
-          Icons.Default.Bookmarks,
+          Icons.TwoTone.Bookmarks,
           onClick = { onOpenSheet(Sheets.Chapters) },
           color = if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface,
           modifier = Modifier.size(buttonSize),
@@ -242,7 +242,7 @@ fun RenderPlayerButton(
             ),
           ) {
             Icon(
-              imageVector = Icons.Default.Speed,
+              imageVector = Icons.TwoTone.Speed,
               contentDescription = "Playback Speed",
               tint = MaterialTheme.colorScheme.primary,
               modifier = Modifier.size(20.dp),
@@ -257,7 +257,7 @@ fun RenderPlayerButton(
         }
       } else {
         ControlsButton(
-          icon = Icons.Default.Speed,
+          icon = Icons.TwoTone.Speed,
           onClick = { onOpenSheet(Sheets.PlaybackSpeed) },
           color = if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface,
           modifier = Modifier.size(buttonSize),
@@ -322,7 +322,7 @@ fun RenderPlayerButton(
 
     PlayerButton.SCREEN_ROTATION -> {
       ControlsButton(
-        icon = Icons.Default.ScreenRotation,
+        icon = Icons.TwoTone.ScreenRotation,
         onClick = viewModel::cycleScreenRotations,
         color = if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.size(buttonSize),
@@ -369,7 +369,7 @@ fun RenderPlayerButton(
               ) {
                 Box(contentAlignment = Alignment.Center) {
                   Icon(
-                    imageVector = Icons.Default.FastRewind,
+                    imageVector = Icons.TwoTone.FastRewind,
                     contentDescription = "Previous Frame",
                     tint = if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(20.dp),
@@ -412,7 +412,7 @@ fun RenderPlayerButton(
                 ) {
                   Box(contentAlignment = Alignment.Center) {
                     Icon(
-                      imageVector = Icons.Default.CameraAlt,
+                      imageVector = Icons.TwoTone.CameraAlt,
                       contentDescription = "Take Screenshot",
                       tint = if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface,
                       modifier = Modifier.size(20.dp),
@@ -435,7 +435,7 @@ fun RenderPlayerButton(
               ) {
                 Box(contentAlignment = Alignment.Center) {
                   Icon(
-                    imageVector = Icons.Default.FastForward,
+                    imageVector = Icons.TwoTone.FastForward,
                     contentDescription = "Next Frame",
                     tint = if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(20.dp),
@@ -447,7 +447,7 @@ fun RenderPlayerButton(
         } else {
           // Collapsed: Show camera icon button
           ControlsButton(
-            icon = Icons.Default.Camera,
+            icon = Icons.TwoTone.Camera,
             onClick = viewModel::toggleFrameNavigationExpanded,
             onLongClick = { onOpenSheet(Sheets.FrameNavigation) },
             color = if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface,
@@ -495,7 +495,7 @@ fun RenderPlayerButton(
             ),
           ) {
             Icon(
-              imageVector = Icons.Default.ZoomIn,
+              imageVector = Icons.TwoTone.ZoomIn,
               contentDescription = "Video Zoom",
               tint = MaterialTheme.colorScheme.primary,
               modifier = Modifier.size(20.dp),
@@ -510,7 +510,7 @@ fun RenderPlayerButton(
         }
       } else {
         ControlsButton(
-          Icons.Default.ZoomIn,
+          Icons.TwoTone.ZoomIn,
           onClick = {
             clickEvent()
             onOpenSheet(Sheets.VideoZoom)
@@ -524,7 +524,7 @@ fun RenderPlayerButton(
 
     PlayerButton.PICTURE_IN_PICTURE -> {
       ControlsButton(
-        Icons.Default.PictureInPictureAlt,
+        Icons.TwoTone.PictureInPictureAlt,
         onClick = { activity.enterPipModeHidingOverlay() },
         color = if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.size(buttonSize),
@@ -535,9 +535,9 @@ fun RenderPlayerButton(
       ControlsButton(
         icon =
           when (aspect) {
-            VideoAspect.Fit -> Icons.Default.AspectRatio
-            VideoAspect.Stretch -> Icons.Default.ZoomOutMap
-            VideoAspect.Crop -> Icons.Default.FitScreen
+            VideoAspect.Fit -> Icons.TwoTone.AspectRatio
+            VideoAspect.Stretch -> Icons.TwoTone.ZoomOutMap
+            VideoAspect.Crop -> Icons.TwoTone.FitScreen
           },
         onClick = {
           when (aspect) {
@@ -554,7 +554,7 @@ fun RenderPlayerButton(
 
     PlayerButton.LOCK_CONTROLS -> {
       ControlsButton(
-        Icons.Default.LockOpen,
+        Icons.TwoTone.LockOpen,
         onClick = viewModel::lockControls,
         color = if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.size(buttonSize),
@@ -563,7 +563,7 @@ fun RenderPlayerButton(
 
     PlayerButton.AUDIO_TRACK -> {
       ControlsButton(
-        Icons.Default.Audiotrack,
+        Icons.TwoTone.Audiotrack,
         onClick = { onOpenSheet(Sheets.AudioTracks) },
         onLongClick = { onOpenPanel(Panels.AudioDelay) },
         color = if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface,
@@ -573,7 +573,7 @@ fun RenderPlayerButton(
 
     PlayerButton.SUBTITLES -> {
       ControlsButton(
-        Icons.Default.Subtitles,
+        Icons.TwoTone.Subtitles,
         onClick = { onOpenSheet(Sheets.SubtitleTracks) },
         onLongClick = { onOpenPanel(Panels.SubtitleDelay) },
         color = if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface,
@@ -583,7 +583,7 @@ fun RenderPlayerButton(
 
     PlayerButton.MORE_OPTIONS -> {
       ControlsButton(
-        Icons.Default.MoreVert,
+        Icons.TwoTone.MoreVert,
         onClick = { onOpenSheet(Sheets.More) },
         onLongClick = { onOpenPanel(Panels.VideoFilters) },
         color = if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface,
@@ -612,9 +612,9 @@ fun RenderPlayerButton(
     PlayerButton.REPEAT_MODE -> {
       val repeatMode by viewModel.repeatMode.collectAsState()
       val icon = when (repeatMode) {
-        app.marlboroadvance.mpvex.ui.player.RepeatMode.OFF -> Icons.Default.Repeat
-        app.marlboroadvance.mpvex.ui.player.RepeatMode.ONE -> Icons.Default.RepeatOne
-        app.marlboroadvance.mpvex.ui.player.RepeatMode.ALL -> Icons.Default.RepeatOn
+        app.marlboroadvance.mpvex.ui.player.RepeatMode.OFF -> Icons.TwoTone.Repeat
+        app.marlboroadvance.mpvex.ui.player.RepeatMode.ONE -> Icons.TwoTone.RepeatOne
+        app.marlboroadvance.mpvex.ui.player.RepeatMode.ALL -> Icons.TwoTone.RepeatOn
       }
       ControlsButton(
         icon = icon,
@@ -637,7 +637,7 @@ fun RenderPlayerButton(
     PlayerButton.CUSTOM_SKIP -> {
       val playerPreferences = org.koin.compose.koinInject<app.marlboroadvance.mpvex.preferences.PlayerPreferences>()
       ControlsButton(
-        icon = Icons.Default.FastForward,
+        icon = Icons.TwoTone.FastForward,
         onClick = { viewModel.seekBy(playerPreferences.customSkipDuration.get()) },
         color = if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.size(buttonSize),
@@ -649,7 +649,7 @@ fun RenderPlayerButton(
       if (viewModel.hasPlaylistSupport()) {
         val shuffleEnabled by viewModel.shuffleEnabled.collectAsState()
         ControlsButton(
-          icon = if (shuffleEnabled) Icons.Default.ShuffleOn else Icons.Default.Shuffle,
+          icon = if (shuffleEnabled) Icons.TwoTone.ShuffleOn else Icons.TwoTone.Shuffle,
           onClick = viewModel::toggleShuffle,
           color = if (hideBackground) {
             if (shuffleEnabled) MaterialTheme.colorScheme.primary else controlColor
@@ -664,7 +664,7 @@ fun RenderPlayerButton(
     PlayerButton.MIRROR -> {
       val isMirrored by viewModel.isMirrored.collectAsState()
       ControlsButton(
-        icon = Icons.Default.Flip,
+        icon = Icons.TwoTone.Flip,
         onClick = viewModel::toggleMirroring,
         color = if (hideBackground) {
           if (isMirrored) MaterialTheme.colorScheme.primary else controlColor
@@ -694,7 +694,7 @@ fun RenderPlayerButton(
       ) {
         Box(contentAlignment = Alignment.Center) {
           Icon(
-            imageVector = Icons.Default.Flip,
+            imageVector = Icons.TwoTone.Flip,
             contentDescription = "Vertical Flip",
             tint = vFlipColor,
             modifier = Modifier
@@ -772,7 +772,7 @@ fun RenderPlayerButton(
               ) {
                 Box(contentAlignment = Alignment.Center) {
                   Icon(
-                    imageVector = Icons.Default.Close,
+                    imageVector = Icons.TwoTone.Close,
                     contentDescription = "Clear Loop",
                     tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(16.dp),
@@ -836,7 +836,7 @@ fun RenderPlayerButton(
 
     PlayerButton.BACKGROUND_PLAYBACK -> {
       ControlsButton(
-        icon = Icons.Default.Headset,
+        icon = Icons.TwoTone.Headset,
         onClick = { activity.triggerBackgroundPlayback() },
         color = if (hideBackground) controlColor else MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.size(buttonSize),
