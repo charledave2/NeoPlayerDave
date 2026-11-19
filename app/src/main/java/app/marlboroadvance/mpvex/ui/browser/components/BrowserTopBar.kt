@@ -9,21 +9,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.twotone.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.automirrored.twotone.PlaylistAdd
+import androidx.compose.material.icons.automirrored.twotone.Sort
 import androidx.compose.material.icons.twotone.ArrowDropDown
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DriveFileRenameOutline
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.RemoveCircle
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.SortByAlpha
-import androidx.compose.material.icons.filled.ViewComfy
+import androidx.compose.material.icons.twotone.Close
+import androidx.compose.material.icons.twotone.Block
+import androidx.compose.material.icons.twotone.Delete
+import androidx.compose.material.icons.twotone.DriveFileRenameOutline
+import androidx.compose.material.icons.twotone.Info
+import androidx.compose.material.icons.twotone.PlayArrow
+import androidx.compose.material.icons.twotone.RemoveCircle
+import androidx.compose.material.icons.twotone.Search
+import androidx.compose.material.icons.twotone.Settings
+import androidx.compose.material.icons.twotone.Share
+import androidx.compose.material.icons.twotone.SortByAlpha
+import androidx.compose.material.icons.twotone.ViewComfy
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -280,7 +280,7 @@ private fun NormalTopBar(
           modifier = Modifier.padding(horizontal = 2.dp),
         ) {
           Icon(
-            Icons.Filled.Settings,
+            Icons.TwoTone.Settings,
             contentDescription = "Settings",
             modifier = Modifier.size(24.dp),
             tint = MaterialTheme.colorScheme.secondary,
@@ -338,7 +338,7 @@ private fun SelectionTopBar(
           overflow = TextOverflow.Ellipsis,
         )
         Icon(
-          Icons.Filled.ArrowDropDown,
+          Icons.TwoTone.ArrowDropDown,
           contentDescription = stringResource(R.string.selection_options),
           modifier = Modifier.size(24.dp),
           tint = MaterialTheme.colorScheme.primary,
@@ -384,7 +384,7 @@ private fun SelectionTopBar(
         modifier = Modifier.padding(horizontal = 2.dp),
       ) {
         Icon(
-          Icons.Filled.Close,
+          Icons.TwoTone.Close,
           contentDescription = stringResource(R.string.generic_cancel),
           modifier = Modifier.size(28.dp),
           tint = MaterialTheme.colorScheme.secondary,
@@ -399,7 +399,7 @@ private fun SelectionTopBar(
           modifier = Modifier.padding(horizontal = 2.dp),
         ) {
           Icon(
-            Icons.Filled.PlayArrow,
+            Icons.TwoTone.PlayArrow,
             contentDescription = "Play",
             modifier = Modifier.size(28.dp),
             tint = MaterialTheme.colorScheme.primary,
@@ -414,7 +414,7 @@ private fun SelectionTopBar(
           modifier = Modifier.padding(horizontal = 2.dp),
         ) {
           Icon(
-            Icons.AutoMirrored.Filled.PlaylistAdd,
+            Icons.AutoMirrored.TwoTone.PlaylistAdd,
             contentDescription = "Add to Playlist",
             modifier = Modifier.size(28.dp),
             tint = MaterialTheme.colorScheme.secondary,
@@ -430,7 +430,7 @@ private fun SelectionTopBar(
           modifier = Modifier.padding(horizontal = 2.dp),
         ) {
           Icon(
-            Icons.Filled.DriveFileRenameOutline,
+            Icons.TwoTone.DriveFileRenameOutline,
             contentDescription = stringResource(R.string.rename),
             modifier = Modifier.size(24.dp),
             tint =
@@ -451,7 +451,7 @@ private fun SelectionTopBar(
           modifier = Modifier.padding(horizontal = 2.dp),
         ) {
           Icon(
-            Icons.Filled.Info,
+            Icons.TwoTone.Info,
             contentDescription = stringResource(R.string.info),
             modifier = Modifier.size(24.dp),
             tint =
@@ -471,7 +471,7 @@ private fun SelectionTopBar(
           modifier = Modifier.padding(horizontal = 2.dp),
         ) {
           Icon(
-            Icons.Filled.Share,
+            Icons.TwoTone.Share,
             contentDescription = stringResource(R.string.generic_share),
             modifier = Modifier.size(24.dp),
             tint = MaterialTheme.colorScheme.secondary,
@@ -486,7 +486,7 @@ private fun SelectionTopBar(
           modifier = Modifier.padding(horizontal = 2.dp),
         ) {
           Icon(
-            Icons.Filled.Block,
+            Icons.TwoTone.Block,
             contentDescription = stringResource(R.string.pref_folders_blacklist),
             modifier = Modifier.size(24.dp),
             tint = MaterialTheme.colorScheme.secondary,
@@ -501,7 +501,7 @@ private fun SelectionTopBar(
           modifier = Modifier.padding(horizontal = 2.dp),
         ) {
           Icon(
-            imageVector = if (useRemoveIcon) Icons.Filled.RemoveCircle else Icons.Filled.Delete,
+            imageVector = if (useRemoveIcon) Icons.TwoTone.RemoveCircle else Icons.TwoTone.Delete,
             contentDescription = stringResource(R.string.delete),
             modifier = Modifier.size(24.dp),
             tint = MaterialTheme.colorScheme.error,
