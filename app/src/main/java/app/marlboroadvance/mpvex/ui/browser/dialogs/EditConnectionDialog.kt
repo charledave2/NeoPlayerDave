@@ -31,6 +31,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.marlboroadvance.mpvex.domain.network.NetworkConnection
@@ -239,6 +241,17 @@ fun EditConnectionSheet(
             modifier = Modifier.weight(0.50f),
             singleLine = true,
             enabled = !isAnonymous,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+              IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                Icon(
+                  imageVector = if (passwordVisible) Icons.TwoTone.VisibilityOff else Icons.TwoTone.Visibility,
+                  contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                  modifier = Modifier.size(18.dp),
+                )
+              }
+            },
           )
         }
       }
