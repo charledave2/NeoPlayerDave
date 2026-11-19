@@ -296,7 +296,7 @@ private fun SquigglySeekbar(
 
   // Wave parameters
   val waveLength = 80f
-  val lineAmplitude = if (useWavySeekbar) 6f else 0f
+  val lineAmplitude = if (useWavySeekbar) 2.5f else 0f
   val phaseSpeed = 10f // px per second
   val transitionPeriods = 1.5f
   val minWaveEndpoint = 0f
@@ -353,7 +353,7 @@ private fun SquigglySeekbar(
         .fillMaxWidth()
         .height(48.dp),
   ) {
-    val strokeWidth = 5.dp.toPx()
+    val strokeWidth = 2.5.dp.toPx()
     val progress = if (duration > 0f) (position / duration).coerceIn(0f, 1f) else 0f
     val totalWidth = size.width
     val totalProgressPx = totalWidth * progress
@@ -462,7 +462,7 @@ private fun SquigglySeekbar(
 
     // Vertical Bar Thumb
     val barHalfHeight = (lineAmplitude + strokeWidth)
-    val barWidth = 5.dp.toPx()
+    val barWidth = 3.dp.toPx()
 
     if (barHalfHeight > 0.5f) {
         drawLine(
@@ -582,10 +582,10 @@ fun StandardSeekbar(
     }
     
     val isThick = seekbarStyle == SeekbarStyle.Thick
-    val baseTrackHeight = if (isThick) 16.dp else 8.dp
+    val baseTrackHeight = if (isThick) 16.dp else 4.dp
     val trackHeightDp = baseTrackHeight * heightFraction // Apply animation to track height
-    val thumbWidth = 6.dp
-    val thumbHeight = if (isThick) 16.dp else 24.dp
+    val thumbWidth = if (isThick) 6.dp else 4.dp
+    val thumbHeight = if (isThick) 16.dp else 18.dp
     val thumbShape = if (isThick) RoundedCornerShape(thumbWidth / 2) else CircleShape
 
     Slider(
