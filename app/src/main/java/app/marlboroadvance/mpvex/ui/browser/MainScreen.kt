@@ -203,13 +203,13 @@ object MainScreen : Screen {
               )
           ) {
             NavigationBarItem(
-              icon = { Icon(Icons.Filled.Home, contentDescription = "Home") },
+              icon = { Icon(Icons.TwoTone.Home, contentDescription = "Home", modifier = Modifier.size(20.dp)) },
               label = { Text("Home") },
               selected = selectedTab == 0,
               onClick = { selectedTab = 0 }
             )
             NavigationBarItem(
-              icon = { Icon(Icons.Filled.History, contentDescription = "Recents") },
+              icon = { Icon(Icons.TwoTone.History, contentDescription = "Recents", modifier = Modifier.size(20.dp)) },
               label = { Text("Recents") },
               selected = selectedTab == 1,
               onClick = { selectedTab = 1 }
@@ -221,7 +221,7 @@ object MainScreen : Screen {
               onClick = { selectedTab = 2 }
             )
             NavigationBarItem(
-              icon = { Icon(Icons.Filled.Language, contentDescription = "Network") },
+              icon = { Icon(Icons.TwoTone.Language, contentDescription = "Network", modifier = Modifier.size(20.dp)) },
               label = { Text("Network") },
               selected = selectedTab == 3,
               onClick = { selectedTab = 3 }
