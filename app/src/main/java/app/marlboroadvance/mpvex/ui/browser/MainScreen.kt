@@ -16,11 +16,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.automirrored.twotone.PlaylistPlay
+import androidx.compose.material.icons.twotone.History
+import androidx.compose.material.icons.twotone.Home
+import androidx.compose.material.icons.twotone.Cloud
+import androidx.compose.material.icons.twotone.Language
 import androidx.compose.material3.Icon
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FabPosition
