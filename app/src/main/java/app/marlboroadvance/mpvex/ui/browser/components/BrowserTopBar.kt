@@ -8,10 +8,10 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.twotone.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.twotone.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Delete
@@ -238,7 +238,7 @@ private fun NormalTopBar(
           modifier = Modifier.padding(horizontal = 2.dp),
         ) {
           Icon(
-            Icons.AutoMirrored.Filled.ArrowBack,
+            Icons.AutoMirrored.TwoTone.ArrowBack,
             contentDescription = stringResource(R.string.back),
             modifier = Modifier.size(24.dp),
             tint = MaterialTheme.colorScheme.secondary,
@@ -254,7 +254,7 @@ private fun NormalTopBar(
           modifier = Modifier.padding(horizontal = 2.dp),
         ) {
           Icon(
-            Icons.Filled.Search,
+            Icons.TwoTone.Search,
             contentDescription = "Search",
             modifier = Modifier.size(24.dp),
             tint = MaterialTheme.colorScheme.secondary,
@@ -267,7 +267,7 @@ private fun NormalTopBar(
           modifier = Modifier.padding(horizontal = 2.dp),
         ) {
           Icon(
-            Icons.Default.ViewComfy,
+            Icons.TwoTone.ViewComfy,
             contentDescription = stringResource(R.string.sort),
             modifier = Modifier.size(24.dp),
             tint = MaterialTheme.colorScheme.secondary,
