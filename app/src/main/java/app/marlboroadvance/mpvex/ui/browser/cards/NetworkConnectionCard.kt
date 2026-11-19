@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.twotone.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Link
@@ -77,8 +77,9 @@ fun NetworkConnectionCard(
         Row {
           IconButton(onClick = { onEdit(connection) }) {
             Icon(
-              Icons.Filled.Edit,
+              Icons.TwoTone.Edit,
               contentDescription = "Edit",
+              modifier = Modifier.size(20.dp),
               tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
@@ -86,6 +87,7 @@ fun NetworkConnectionCard(
             Icon(
               Icons.Filled.Delete,
               contentDescription = "Delete",
+              modifier = Modifier.size(20.dp),
               tint = MaterialTheme.colorScheme.error,
             )
           }
@@ -185,7 +187,7 @@ fun NetworkConnectionCard(
                 Icon(
                   Icons.Filled.FolderOpen,
                   contentDescription = null,
-                  modifier = Modifier.padding(end = 8.dp),
+                  modifier = Modifier.padding(end = 8.dp).size(18.dp),
                 )
                 Text("Browse")
               }
