@@ -172,7 +172,7 @@ object MainScreen : Screen {
           contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary
         ) {
           Icon(
-            imageVector = Icons.Filled.Cloud,
+            imageVector = Icons.TwoTone.Cloud,
             contentDescription = "Open cloud media"
           )
         }
@@ -215,7 +215,7 @@ object MainScreen : Screen {
               onClick = { selectedTab = 1 }
             )
             NavigationBarItem(
-              icon = { Icon(Icons.AutoMirrored.Filled.PlaylistPlay, contentDescription = "Playlists") },
+              icon = { Icon(Icons.AutoMirrored.TwoTone.PlaylistPlay, contentDescription = "Playlists", modifier = Modifier.size(20.dp)) },
               label = { Text("Playlists") },
               selected = selectedTab == 2,
               onClick = { selectedTab = 2 }
