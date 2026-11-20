@@ -20,6 +20,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Verify release signing secrets
+        env:
+          SIGNING_KEYSTORE: ${{ secrets.SIGNING_KEYSTORE }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for secret_name in SIGNING_KEYSTORE SIGNING_KEY_ALIAS SIGNING_STORE_PASSWORD KEY_PASSWORD; do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "::error::Required Actions secret ${secret_name} is not configured."
+              exit 1
+            fi
+          done
+
       - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
@@ -74,84 +89,72 @@ jobs:
           ls -lah "$FDROID_RELEASE_DIR"
 
       - name: Sign APKs
+        env:
+          SIGNING_KEYSTORE: ${{ secrets.SIGNING_KEYSTORE }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          set -e
+          set -euo pipefail
+          umask 077
+          KEYSTORE_FILE="$RUNNER_TEMP/release.keystore"
+          trap 'rm -f "$KEYSTORE_FILE"' EXIT
+          printf '%s' "$SIGNING_KEYSTORE" | base64 --decode > "$KEYSTORE_FILE"
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n 1)"
+          if [[ -z "$APKSIGNER" || ! -x "$APKSIGNER" ]]; then
+            echo "::error::Android apksigner was not found in the installed build tools."
+            exit 1
+          fi
+
+          sign_apk() {
+            local apk="$1"
+            local signed_apk="${apk/-unsigned/}"
+            "$APKSIGNER" sign \
+              --ks "$KEYSTORE_FILE" \
+              --ks-key-alias "$SIGNING_KEY_ALIAS" \
+              --ks-pass env:SIGNING_STORE_PASSWORD \
+              --key-pass env:KEY_PASSWORD \
+              --out "$signed_apk" \
+              "$apk"
+            "$APKSIGNER" verify "$signed_apk"
+            rm "$apk"
+          }
+
+          sign_matching_apks() {
+            local directory="$1"
+            local pattern="$2"
+            local apk
+            local apks=()
+            while IFS= read -r -d '' apk; do
+              apks+=("$apk")
+            done < <(find "$directory" -type f -name "$pattern" -print0)
+            if (( ${#apks[@]} == 0 )); then
+              echo "::error::No unsigned APKs matching $pattern were found in $directory."
+              ls -lah "$directory"
+              exit 1
+            fi
+            for apk in "${apks[@]}"; do
+              sign_apk "$apk"
+            done
+          }
+
           STANDARD_RELEASE_DIR="app/build/outputs/apk/standard/release"
           PLAYSTORE_RELEASE_DIR="app/build/outputs/apk/playstore/release"
           FDROID_RELEASE_DIR="app/build/outputs/apk/fdroid/release"
-          
-          echo "${{ secrets.SIGNING_KEYSTORE }}" | base64 -d > release.keystore
-          
-          # Sign standard APKs
-          APK_COUNT=$(find "$STANDARD_RELEASE_DIR" -name "app-standard-*-release-unsigned.apk" -type f | wc -l)
-          if [ "$APK_COUNT" -eq 0 ]; then
-            echo "No unsigned standard APK files found"
-            ls -lah "$STANDARD_RELEASE_DIR"
-            rm release.keystore
-            exit 1
-          fi
-          
-          find "$STANDARD_RELEASE_DIR" -name "app-standard-*-release-unsigned.apk" -type f | while read -r apk; do
-            signed_apk="${apk/-unsigned/}"
-          
-            $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
-              --ks release.keystore \
-              --ks-key-alias "${{ secrets.SIGNING_KEY_ALIAS }}" \
-              --ks-pass "pass:${{ secrets.SIGNING_STORE_PASSWORD }}" \
-              --key-pass "pass:${{ secrets.KEY_PASSWORD }}" \
-              --out "$signed_apk" \
-              "$apk"
-          
-            $ANDROID_HOME/build-tools/34.0.0/apksigner verify "$signed_apk"
-            rm "$apk"
-          done
-          
-          # Sign Play Store APK (universal only)
+
+          sign_matching_apks "$STANDARD_RELEASE_DIR" "app-standard-*-release-unsigned.apk"
+
           PLAYSTORE_APK="$PLAYSTORE_RELEASE_DIR/app-playstore-universal-release-unsigned.apk"
-          if [ ! -f "$PLAYSTORE_APK" ]; then
-            echo "No unsigned Play Store universal APK found"
+          if [[ ! -f "$PLAYSTORE_APK" ]]; then
+            echo "::error::The unsigned Play Store universal APK was not found."
             ls -lah "$PLAYSTORE_RELEASE_DIR"
-            rm release.keystore
             exit 1
           fi
-          
-          SIGNED_PLAYSTORE_APK="${PLAYSTORE_APK/-unsigned/}"
-          $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
-            --ks release.keystore \
-            --ks-key-alias "${{ secrets.SIGNING_KEY_ALIAS }}" \
-            --ks-pass "pass:${{ secrets.SIGNING_STORE_PASSWORD }}" \
-            --key-pass "pass:${{ secrets.KEY_PASSWORD }}" \
-            --out "$SIGNED_PLAYSTORE_APK" \
-            "$PLAYSTORE_APK"
-          
-          $ANDROID_HOME/build-tools/34.0.0/apksigner verify "$SIGNED_PLAYSTORE_APK"
-          rm "$PLAYSTORE_APK"
-          
-          # Sign F-Droid APKs
-          APK_COUNT=$(find "$FDROID_RELEASE_DIR" -name "app-fdroid-*-release-unsigned.apk" -type f | wc -l)
-          if [ "$APK_COUNT" -eq 0 ]; then
-            echo "No unsigned F-Droid APK files found"
-            ls -lah "$FDROID_RELEASE_DIR"
-            rm release.keystore
-            exit 1
-          fi
-          
-          find "$FDROID_RELEASE_DIR" -name "app-fdroid-*-release-unsigned.apk" -type f | while read -r apk; do
-            signed_apk="${apk/-unsigned/}"
-          
-            $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
-              --ks release.keystore \
-              --ks-key-alias "${{ secrets.SIGNING_KEY_ALIAS }}" \
-              --ks-pass "pass:${{ secrets.SIGNING_STORE_PASSWORD }}" \
-              --key-pass "pass:${{ secrets.KEY_PASSWORD }}" \
-              --out "$signed_apk" \
-              "$apk"
-          
-            $ANDROID_HOME/build-tools/34.0.0/apksigner verify "$signed_apk"
-            rm "$apk"
-          done
-          
-          rm release.keystore
+          sign_apk "$PLAYSTORE_APK"
+
+          sign_matching_apks "$FDROID_RELEASE_DIR" "app-fdroid-*-release-unsigned.apk"
+
           echo "Standard APKs:"
           ls -lh "$STANDARD_RELEASE_DIR"/app-standard-*-release.apk
           echo "Play Store APK:"
@@ -206,7 +209,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION_TAG }}
-          name: mpvEx ${{ env.VERSION_TAG }}
+          name: NeoPlayerDave ${{ env.VERSION_TAG }}
           body: |
             ---
             ### Checksums
@@ -244,7 +247,7 @@ jobs:
             mpvEx-x86_64-${{ env.VERSION_TAG }}.apk
             mpvEx-playstore-${{ env.VERSION_TAG }}.apk
             mpvEx-fdroid-${{ env.VERSION_TAG }}.apk
-          draft: true
+          draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

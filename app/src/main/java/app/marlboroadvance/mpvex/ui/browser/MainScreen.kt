@@ -16,10 +16,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.automirrored.twotone.PlaylistPlay
+import androidx.compose.material.icons.twotone.History
+import androidx.compose.material.icons.twotone.Home
+import androidx.compose.material.icons.twotone.Language
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -35,6 +35,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -187,25 +188,25 @@ object MainScreen : Screen {
               )
           ) {
             NavigationBarItem(
-              icon = { Icon(Icons.Filled.Home, contentDescription = "Home") },
+              icon = { Icon(Icons.TwoTone.Home, contentDescription = "Home", modifier = Modifier.size(20.dp)) },
               label = { Text("Home") },
               selected = selectedTab == 0,
               onClick = { selectedTab = 0 }
             )
             NavigationBarItem(
-              icon = { Icon(Icons.Filled.History, contentDescription = "Recents") },
+              icon = { Icon(Icons.TwoTone.History, contentDescription = "Recents", modifier = Modifier.size(20.dp)) },
               label = { Text("Recents") },
               selected = selectedTab == 1,
               onClick = { selectedTab = 1 }
             )
             NavigationBarItem(
-              icon = { Icon(Icons.AutoMirrored.Filled.PlaylistPlay, contentDescription = "Playlists") },
+              icon = { Icon(Icons.AutoMirrored.TwoTone.PlaylistPlay, contentDescription = "Playlists", modifier = Modifier.size(20.dp)) },
               label = { Text("Playlists") },
               selected = selectedTab == 2,
               onClick = { selectedTab = 2 }
             )
             NavigationBarItem(
-              icon = { Icon(Icons.Filled.Language, contentDescription = "Network") },
+              icon = { Icon(Icons.TwoTone.Language, contentDescription = "Network", modifier = Modifier.size(20.dp)) },
               label = { Text("Network") },
               selected = selectedTab == 3,
               onClick = { selectedTab = 3 }

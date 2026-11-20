@@ -19,6 +19,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Verify release signing secrets
+        env:
+          SIGNING_KEYSTORE: ${{ secrets.SIGNING_KEYSTORE }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for secret_name in SIGNING_KEYSTORE SIGNING_KEY_ALIAS SIGNING_STORE_PASSWORD KEY_PASSWORD; do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "::error::Required Actions secret ${secret_name} is not configured."
+              exit 1
+            fi
+          done
+
       - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
@@ -46,36 +61,45 @@ jobs:
           ls -lah "$PREVIEW_DIR"
 
       - name: Sign APKs
+        env:
+          SIGNING_KEYSTORE: ${{ secrets.SIGNING_KEYSTORE }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          set -e
-          PREVIEW_DIR="app/build/outputs/apk/standard/preview"
-          
-          echo "${{ secrets.SIGNING_KEYSTORE }}" | base64 -d > release.keystore
-          
-          APK_COUNT=$(find "$PREVIEW_DIR" -name "app-standard-*-preview-unsigned.apk" -type f | wc -l)
-          if [ "$APK_COUNT" -eq 0 ]; then
-            echo "No unsigned preview APK files found"
-            ls -lah "$PREVIEW_DIR"
-            rm release.keystore
+          set -euo pipefail
+          umask 077
+          KEYSTORE_FILE="$RUNNER_TEMP/release.keystore"
+          trap 'rm -f "$KEYSTORE_FILE"' EXIT
+          printf '%s' "$SIGNING_KEYSTORE" | base64 --decode > "$KEYSTORE_FILE"
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n 1)"
+          if [[ -z "$APKSIGNER" || ! -x "$APKSIGNER" ]]; then
+            echo "::error::Android apksigner was not found in the installed build tools."
             exit 1
           fi
-          
-          find "$PREVIEW_DIR" -name "app-standard-*-preview-unsigned.apk" -type f | while read -r apk; do
+
+          PREVIEW_DIR="app/build/outputs/apk/standard/preview"
+          APK_COUNT=$(find "$PREVIEW_DIR" -name "app-standard-*-preview-unsigned.apk" -type f | wc -l)
+          if [[ "$APK_COUNT" -eq 0 ]]; then
+            echo "::error::No unsigned preview APK files were found."
+            ls -lah "$PREVIEW_DIR"
+            exit 1
+          fi
+
+          while IFS= read -r -d '' apk; do
             signed_apk="${apk/-unsigned/}"
-          
-            $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
-              --ks release.keystore \
-              --ks-key-alias "${{ secrets.SIGNING_KEY_ALIAS }}" \
-              --ks-pass "pass:${{ secrets.SIGNING_STORE_PASSWORD }}" \
-              --key-pass "pass:${{ secrets.KEY_PASSWORD }}" \
+            "$APKSIGNER" sign \
+              --ks "$KEYSTORE_FILE" \
+              --ks-key-alias "$SIGNING_KEY_ALIAS" \
+              --ks-pass env:SIGNING_STORE_PASSWORD \
+              --key-pass env:KEY_PASSWORD \
               --out "$signed_apk" \
               "$apk"
-          
-            $ANDROID_HOME/build-tools/34.0.0/apksigner verify "$signed_apk"
+            "$APKSIGNER" verify "$signed_apk"
             rm "$apk"
-          done
-          
-          rm release.keystore
+          done < <(find "$PREVIEW_DIR" -type f -name "app-standard-*-preview-unsigned.apk" -print0)
+
           ls -lh "$PREVIEW_DIR"/app-standard-*-preview.apk
 
       - name: Copy built artifacts

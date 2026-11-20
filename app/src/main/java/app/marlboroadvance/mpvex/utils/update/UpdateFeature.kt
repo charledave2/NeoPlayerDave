@@ -86,7 +86,7 @@ class UpdateManager(
             return null
         }
         
-        val release = getLatestRelease("https://api.github.com/repos/marlboro-advance/mpvEx/releases/latest")
+        val release = getLatestRelease("https://api.github.com/repos/charledave2/NeoPlayerDave/releases/latest")
         val currentVersion = BuildConfig.VERSION_NAME.replace("-dev", "")
         val remoteVersion = release.tagName.removePrefix("v")
         val prefs = context.getSharedPreferences("mpvEx_prefs", Context.MODE_PRIVATE)
@@ -118,11 +118,12 @@ class UpdateManager(
 
     private suspend fun getLatestRelease(url: String): Release = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).build()
-        val response = client.newCall(request).execute()
-        if (!response.isSuccessful) throw IOException("Unexpected code $response")
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("Unexpected code $response")
 
-        val responseBody = response.body?.string() ?: throw IOException("Empty body")
-        json.decodeFromString<Release>(responseBody)
+            val responseBody = response.body?.string() ?: throw IOException("Empty body")
+            json.decodeFromString<Release>(responseBody)
+        }
     }
 
     private fun isNewerVersion(remote: String, current: String): Boolean {
@@ -286,8 +287,9 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     init {
-        // Only initialize auto-update if feature is enabled
-        if (BuildConfig.ENABLE_UPDATE_FEATURE && isAutoUpdateEnabled.value) {
+        // Check the fork's latest published release on every app start.
+        // This only shows a dialog when a newer version is found.
+        if (BuildConfig.ENABLE_UPDATE_FEATURE) {
             checkForUpdate(manual = false)
         }
     }

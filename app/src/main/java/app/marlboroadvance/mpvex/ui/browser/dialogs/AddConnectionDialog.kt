@@ -5,12 +5,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.twotone.Visibility
+import androidx.compose.material.icons.twotone.VisibilityOff
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
@@ -31,6 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.marlboroadvance.mpvex.domain.network.NetworkConnection
@@ -47,7 +55,7 @@ fun AddConnectionSheet(
   if (!isOpen) return
 
   var name by remember { mutableStateOf("") }
-  var protocol by remember { mutableStateOf(NetworkProtocol.SMB) }
+  var protocol by remember { mutableStateOf(NetworkProtocol.WEBDAV) }
   var host by remember { mutableStateOf("") }
   var port by remember { mutableStateOf(protocol.defaultPort.toString()) }
   var username by remember { mutableStateOf("") }
@@ -141,6 +149,47 @@ fun AddConnectionSheet(
                     )
                   }
           }
+        }
+      }
+
+      // pCloud region presets
+      if (protocol == NetworkProtocol.WEBDAV) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          Text("pCloud region", style = MaterialTheme.typography.labelLarge)
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            TextButton(
+              onClick = {
+                name = "pCloud (US)"
+                protocol = NetworkProtocol.WEBDAV
+                host = "webdav.pcloud.com"
+                port = "443"
+                path = "/"
+                isAnonymous = false
+                useHttps = true
+              },
+              modifier = Modifier.weight(1f),
+            ) { Text("United States") }
+            TextButton(
+              onClick = {
+                name = "pCloud (Europe)"
+                protocol = NetworkProtocol.WEBDAV
+                host = "ewebdav.pcloud.com"
+                port = "443"
+                path = "/"
+                isAnonymous = false
+                useHttps = true
+              },
+              modifier = Modifier.weight(1f),
+            ) { Text("Europe") }
+          }
+          Text(
+            "Choose your pCloud data region, then enter your pCloud email and password below.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
         }
       }
 
@@ -239,6 +288,17 @@ fun AddConnectionSheet(
                 modifier = Modifier.weight(0.50f),
                 singleLine = true,
                 enabled = !isAnonymous,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                  IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                      imageVector = if (passwordVisible) Icons.TwoTone.VisibilityOff else Icons.TwoTone.Visibility,
+                      contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                      modifier = Modifier.size(18.dp),
+                    )
+                  }
+                },
               )
             }
 

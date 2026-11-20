@@ -7,11 +7,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material.icons.twotone.Delete
+import androidx.compose.material.icons.twotone.Edit
+import androidx.compose.material.icons.twotone.FolderOpen
+import androidx.compose.material.icons.twotone.Link
+import androidx.compose.material.icons.twotone.LinkOff
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -77,15 +77,17 @@ fun NetworkConnectionCard(
         Row {
           IconButton(onClick = { onEdit(connection) }) {
             Icon(
-              Icons.Filled.Edit,
+              Icons.TwoTone.Edit,
               contentDescription = "Edit",
+              modifier = Modifier.size(20.dp),
               tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
           IconButton(onClick = { onDelete(connection) }) {
             Icon(
-              Icons.Filled.Delete,
+              Icons.TwoTone.Delete,
               contentDescription = "Delete",
+              modifier = Modifier.size(20.dp),
               tint = MaterialTheme.colorScheme.error,
             )
           }
@@ -183,9 +185,9 @@ fun NetworkConnectionCard(
                 ),
               ) {
                 Icon(
-                  Icons.Filled.FolderOpen,
+                  Icons.TwoTone.FolderOpen,
                   contentDescription = null,
-                  modifier = Modifier.padding(end = 8.dp),
+                  modifier = Modifier.padding(end = 8.dp).size(18.dp),
                 )
                 Text("Browse")
               }
@@ -198,7 +200,7 @@ fun NetworkConnectionCard(
                 ),
               ) {
                 Icon(
-                  Icons.Filled.LinkOff,
+                  Icons.TwoTone.LinkOff,
                   contentDescription = null,
                   modifier = Modifier.padding(end = 8.dp),
                 )
@@ -216,7 +218,7 @@ fun NetworkConnectionCard(
               ),
             ) {
               Icon(
-                Icons.Filled.Link,
+                Icons.TwoTone.Link,
                 contentDescription = null,
                 modifier = Modifier.padding(end = 8.dp),
               )

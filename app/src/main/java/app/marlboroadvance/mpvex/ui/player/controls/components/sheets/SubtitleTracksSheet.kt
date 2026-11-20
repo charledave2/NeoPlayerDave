@@ -3,7 +3,7 @@ package app.marlboroadvance.mpvex.ui.player.controls.components.sheets
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.twotone.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -64,13 +64,13 @@ fun SubtitlesSheet(
         onAddSubtitle,
         actions = {
           IconButton(onClick = onOpenOnlineSearch) {
-            Icon(Icons.Default.Search, null)
+            Icon(Icons.TwoTone.Search, null, modifier = Modifier.size(20.dp))
           }
           IconButton(onClick = onOpenSubtitleSettings) {
-            Icon(Icons.Default.Palette, null)
+            Icon(Icons.TwoTone.Palette, null, modifier = Modifier.size(20.dp))
           }
           IconButton(onClick = onOpenSubtitleDelay) {
-            Icon(Icons.Default.MoreTime, null)
+            Icon(Icons.TwoTone.MoreTime, null, modifier = Modifier.size(20.dp))
           }
         },
       )
@@ -135,7 +135,7 @@ fun SubtitleTrackRow(
     Checkbox(checked = isSelected, onCheckedChange = { onToggle() })
     Text(title, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.weight(1f))
     if (isExternal) {
-      IconButton(onClick = onRemove) { Icon(Icons.Default.Delete, contentDescription = null) }
+      IconButton(onClick = onRemove) { Icon(Icons.TwoTone.Delete, contentDescription = null, modifier = Modifier.size(18.dp)) }
     }
   }
 }
