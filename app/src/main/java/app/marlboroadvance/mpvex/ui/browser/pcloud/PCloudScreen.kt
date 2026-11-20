@@ -1,6 +1,9 @@
 package app.marlboroadvance.mpvex.ui.browser.pcloud
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +27,9 @@ import androidx.compose.material.icons.twotone.Cloud
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -34,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,6 +53,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -57,8 +66,11 @@ import app.marlboroadvance.mpvex.utils.media.MediaUtils
 import app.marlboroadvance.mpvex.utils.pcloud.PCloudApi
 import app.marlboroadvance.mpvex.utils.pcloud.PCloudAuth
 import app.marlboroadvance.mpvex.utils.pcloud.PCloudEntry
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import java.net.URL
 
 @Serializable
 object PCloudScreen : Screen {
@@ -79,6 +91,8 @@ object PCloudScreen : Screen {
     var error by remember { mutableStateOf<String?>(null) }
     var accountMessage by remember { mutableStateOf<String?>(null) }
     var refreshCounter by remember { mutableIntStateOf(0) }
+    var mediaFilter by rememberSaveable { mutableIntStateOf(0) }
+    var selectedPhoto by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     fun goBack() {
       if (folderStack.isNotEmpty()) {
@@ -230,10 +244,15 @@ object PCloudScreen : Screen {
               )
             }
             Text(
-              text = "Your files are accessed through pCloud OAuth. WebDAV connections remain available in Network.",
+              text = "Browse and stream pCloud media. WebDAV remains available in Network for other storage servers.",
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            ScrollableTabRow(selectedTabIndex = mediaFilter, edgePadding = 0.dp) {
+              listOf("All", "Videos", "Photos", "Music").forEachIndexed { index, label ->
+                Tab(selected = mediaFilter == index, onClick = { mediaFilter = index }, text = { Text(label) })
+              }
+            }
           }
           if (isLoading) {
             item {
@@ -256,7 +275,15 @@ object PCloudScreen : Screen {
               )
             }
           }
-          items(entries, key = { (it.folderId ?: it.fileId).toString() }) { entry ->
+          val filteredEntries = entries.filter { entry ->
+            if (entry.isFolder || mediaFilter == 0) true else when (mediaFilter) {
+              1 -> mediaKind(entry.name) == "video"
+              2 -> mediaKind(entry.name) == "image"
+              3 -> mediaKind(entry.name) == "audio"
+              else -> true
+            }
+          }
+          items(filteredEntries, key = { (it.folderId ?: it.fileId).toString() }) { entry ->
             PCloudEntryCard(
               entry = entry,
               onClick = {
@@ -271,7 +298,8 @@ object PCloudScreen : Screen {
                     error = null
                     try {
                       val link = PCloudApi.getFileLink(context, fileId)
-                      MediaUtils.playFile(link, context, "pcloud")
+                      if (mediaKind(entry.name) == "image") selectedPhoto = entry.name to link
+                      else MediaUtils.playFile(link, context, "pcloud", audioOnly = mediaKind(entry.name) == "audio")
                     } catch (exception: Exception) {
                       error = exception.message ?: "Could not open this pCloud file."
                       connected = PCloudAuth.isConnected(context)
@@ -286,8 +314,51 @@ object PCloudScreen : Screen {
         }
       }
     }
+    selectedPhoto?.let { (name, url) ->
+      PCloudPhotoDialog(name, url) { selectedPhoto = null }
+    }
   }
 }
+
+private fun mediaKind(name: String): String = when (name.substringAfterLast('.', "").lowercase()) {
+  "mp4", "m4v", "mkv", "avi", "mov", "webm", "wmv", "mpeg", "mpg", "3gp", "ts" -> "video"
+  "jpg", "jpeg", "png", "gif", "webp", "bmp", "heic", "heif", "tif", "tiff" -> "image"
+  "mp3", "m4a", "aac", "flac", "ogg", "opus", "wav", "wma", "ape", "alac", "aiff" -> "audio"
+  else -> "other"
+}
+
+@Composable
+private fun PCloudPhotoDialog(name: String, url: String, onDismiss: () -> Unit) {
+  val bitmap = produceState<Bitmap?>(null, url) {
+    value = withContext(Dispatchers.IO) { decodeRemoteImage(url) }
+  }.value
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+    confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    text = {
+      Box(Modifier.fillMaxWidth().height(440.dp), contentAlignment = Alignment.Center) {
+        bitmap?.let { Image(it.asImageBitmap(), contentDescription = name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit) }
+          ?: androidx.compose.material3.CircularProgressIndicator()
+      }
+    },
+  )
+}
+
+
+private fun decodeRemoteImage(url: String): Bitmap? = runCatching {
+  val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+  URL(url).openConnection().apply { connectTimeout = 15_000; readTimeout = 20_000 }.getInputStream().use {
+    BitmapFactory.decodeStream(it, null, bounds)
+  }
+  if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@runCatching null
+  var sample = 1
+  while (bounds.outWidth / sample > 2400 || bounds.outHeight / sample > 2400) sample *= 2
+  val options = BitmapFactory.Options().apply { inSampleSize = sample }
+  URL(url).openConnection().apply { connectTimeout = 15_000; readTimeout = 20_000 }.getInputStream().use {
+    BitmapFactory.decodeStream(it, null, options)
+  }
+}.getOrNull()
 
 @Composable
 fun PCloudAccessCard(onClick: () -> Unit) {

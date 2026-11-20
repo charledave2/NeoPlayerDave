@@ -119,8 +119,10 @@ jobs:
           name: Pcloud Media Manager ${{ env.VERSION_TAG }}
           body: |
             ### What's new
+            - Unified local media library for Movies, TV Shows, Photos, and Music, with search and in-app photo viewing.
+            - Dedicated audio-only player with queue, seek, shuffle, repeat, background playback, and media controls.
+            - pCloud browsing now filters Videos, Photos, and Music; network sources expose audio and image files too.
             - pCloud OAuth sign-in and direct cloud browsing/streaming (requires PCLOUD_CLIENT_ID Actions secret).
-            - Stream Link is now hidden until opened from Network.
             - Pcloud Media Manager personal ARM64 release: one signed APK.
 
             **SHA-256:** ${{ env.apk_sha256 }}

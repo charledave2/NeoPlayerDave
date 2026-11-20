@@ -340,6 +340,18 @@ class FtpClient(private val connection: NetworkConnection) : NetworkClient {
       "mpeg", "mpg" -> "video/mpeg"
       "3gp" -> "video/3gpp"
       "ts" -> "video/mp2t"
+      "mp3" -> "audio/mpeg"
+      "m4a" -> "audio/mp4"
+      "aac" -> "audio/aac"
+      "flac" -> "audio/flac"
+      "ogg", "opus" -> "audio/ogg"
+      "wav" -> "audio/wav"
+      "wma" -> "audio/x-ms-wma"
+      "jpg", "jpeg" -> "image/jpeg"
+      "png" -> "image/png"
+      "gif" -> "image/gif"
+      "webp" -> "image/webp"
+      "heic" -> "image/heic"
       else -> null
     }
   }

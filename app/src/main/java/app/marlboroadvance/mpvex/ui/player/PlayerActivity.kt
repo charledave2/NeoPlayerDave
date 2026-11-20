@@ -1,4 +1,4 @@
-﻿package app.marlboroadvance.mpvex.ui.player
+package app.marlboroadvance.mpvex.ui.player
 
 import android.content.BroadcastReceiver
 import android.content.ComponentName
@@ -163,6 +163,9 @@ class PlayerActivity :
    * Current video file name being played.
    */
   private var fileName = ""
+
+  /** True when this session should use the dedicated audio player surface. */
+  private var isAudioOnly = false
 
   /**
    * Unique identifier for the current media, used for saving/loading playback state.
@@ -330,6 +333,7 @@ class PlayerActivity :
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
     setContentView(binding.root)
+    isAudioOnly = isAudioIntent(intent)
 
     // OPTIMIZATION: Set volume control stream so hardware buttons control media volume
     volumeControlStream = AudioManager.STREAM_MUSIC
@@ -474,18 +478,35 @@ class PlayerActivity :
     finish()
   }
 
+  private fun isAudioIntent(intent: Intent?): Boolean {
+    if (intent?.getBooleanExtra("audio_only", false) == true) return true
+    if (intent?.type?.startsWith("audio/", ignoreCase = true) == true) return true
+    val extension = intent?.data?.lastPathSegment?.substringAfterLast('.', "")?.substringBefore('?')?.lowercase()
+    return extension in setOf("mp3", "m4a", "aac", "flac", "ogg", "opus", "wav", "wma", "ape", "alac", "aiff")
+  }
+
   @RequiresApi(Build.VERSION_CODES.P)
   private fun setupPlayerControls() {
     binding.controls.setContent {
       MpvexTheme {
-        PlayerControls(
-          viewModel = viewModel,
-          onBackPress = {
-            isUserFinishing = true
-            finish()
-          },
-          modifier = Modifier,
-        )
+        val backAction = {
+          isUserFinishing = true
+          finish()
+        }
+        if (isAudioOnly) {
+          MusicPlayerControls(
+            viewModel = viewModel,
+            onBackPress = backAction,
+            onPrevious = ::playPrevious,
+            onNext = ::playNext,
+          )
+        } else {
+          PlayerControls(
+            viewModel = viewModel,
+            onBackPress = backAction,
+            modifier = Modifier,
+          )
+        }
       }
     }
   }
@@ -761,8 +782,12 @@ class PlayerActivity :
     super.onStart()
 
     runCatching {
-      setupWindowFlags()
-      setupSystemUI()
+      if (isAudioOnly) {
+        restoreSystemUI()
+      } else {
+        setupWindowFlags()
+        setupSystemUI()
+      }
 
       if (!noisyReceiverRegistered) {
         val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
@@ -2268,6 +2293,9 @@ class PlayerActivity :
 
     // Update the intent first so getFileName uses the new intent data
     setIntent(intent)
+    val wasAudioOnly = isAudioOnly
+    isAudioOnly = isAudioIntent(intent)
+    if (wasAudioOnly != isAudioOnly) setupPlayerControls()
 
     // Check if this intent has playlist information
     val hasPlaylistExtras = intent.hasExtra("playlist_id") ||

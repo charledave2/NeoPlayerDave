@@ -75,7 +75,26 @@ class NetworkStreamingProvider : ContentProvider() {
   }
 
   override fun getType(uri: Uri): String? {
-    return "video/*"
+    val extension = Uri.decode(uri.lastPathSegment.orEmpty()).substringAfterLast('.', "").lowercase()
+    return when (extension) {
+      "mp3" -> "audio/mpeg"
+      "m4a" -> "audio/mp4"
+      "aac" -> "audio/aac"
+      "flac" -> "audio/flac"
+      "ogg", "opus" -> "audio/ogg"
+      "wav" -> "audio/wav"
+      "wma" -> "audio/x-ms-wma"
+      "jpg", "jpeg" -> "image/jpeg"
+      "png" -> "image/png"
+      "gif" -> "image/gif"
+      "webp" -> "image/webp"
+      "heic" -> "image/heic"
+      "mp4", "m4v" -> "video/mp4"
+      "mkv" -> "video/x-matroska"
+      "avi" -> "video/x-msvideo"
+      "mov" -> "video/quicktime"
+      else -> "video/*"
+    }
   }
 
   override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {

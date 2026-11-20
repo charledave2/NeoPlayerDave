@@ -34,6 +34,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.marlboroadvance.mpvex.database.dao.NetworkConnectionDao
 import app.marlboroadvance.mpvex.domain.network.NetworkConnection
 import app.marlboroadvance.mpvex.domain.network.NetworkFile
+import app.marlboroadvance.mpvex.domain.network.resolvedMimeType
 import app.marlboroadvance.mpvex.preferences.preference.collectAsState
 import app.marlboroadvance.mpvex.presentation.Screen
 import app.marlboroadvance.mpvex.presentation.components.pullrefresh.PullRefreshBox
@@ -202,7 +203,7 @@ private fun NetworkBrowserContent(
 
     else -> {
       val folders = files.filter { it.isDirectory }
-      val videos = files.filter { !it.isDirectory && it.mimeType?.startsWith("video/") == true }
+      val videos = files.filter { !it.isDirectory && it.resolvedMimeType()?.substringBefore("/") in setOf("video", "audio", "image") }
       val networkListState = LazyListState()
 
       // Check if at top of list to hide scrollbar during pull-to-refresh
@@ -212,7 +213,7 @@ private fun NetworkBrowserContent(
         }
       }
 
-      // Only show scrollbar if list has more than 20 items (folders + videos)
+      // Only show scrollbar if list has more than 20 items (folders + media files)
       val hasEnoughItems = (folders.size + videos.size) > 20
 
       // Animate scrollbar alpha
@@ -277,7 +278,7 @@ private fun NetworkBrowserContent(
             if (videos.isNotEmpty()) {
               item {
                 Text(
-                  text = "Videos",
+                  text = "Media",
                   style = MaterialTheme.typography.titleMedium,
                   color = MaterialTheme.colorScheme.primary,
                   modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp),

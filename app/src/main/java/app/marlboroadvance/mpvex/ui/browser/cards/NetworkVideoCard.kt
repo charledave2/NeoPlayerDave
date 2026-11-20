@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.twotone.Image
+import androidx.compose.material.icons.twotone.MusicNote
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -32,6 +34,7 @@ import app.marlboroadvance.mpvex.preferences.BrowserPreferences
 import app.marlboroadvance.mpvex.preferences.preference.collectAsState
 import app.marlboroadvance.mpvex.domain.network.NetworkConnection
 import app.marlboroadvance.mpvex.domain.network.NetworkFile
+import app.marlboroadvance.mpvex.domain.network.resolvedMimeType
 import androidx.compose.foundation.combinedClickable
 import org.koin.compose.koinInject
 import java.text.SimpleDateFormat
@@ -93,9 +96,18 @@ fun NetworkVideoCard(
         contentAlignment = Alignment.Center,
       ) {
         // Play icon overlay
+        val mediaIcon = when {
+          file.resolvedMimeType()?.startsWith("audio/") == true -> Icons.TwoTone.MusicNote
+          file.resolvedMimeType()?.startsWith("image/") == true -> Icons.TwoTone.Image
+          else -> Icons.Filled.PlayArrow
+        }
         Icon(
-          Icons.Filled.PlayArrow,
-          contentDescription = "Play",
+          mediaIcon,
+          contentDescription = when {
+            file.resolvedMimeType()?.startsWith("audio/") == true -> "Play music"
+            file.resolvedMimeType()?.startsWith("image/") == true -> "Open image"
+            else -> "Play video"
+          },
           modifier = Modifier.size(48.dp),
           tint = MaterialTheme.colorScheme.secondary,
         )

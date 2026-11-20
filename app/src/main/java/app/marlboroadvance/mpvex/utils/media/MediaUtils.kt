@@ -51,6 +51,7 @@ object MediaUtils {
     source: Any,
     context: Context,
     launchSource: String? = null,
+    audioOnly: Boolean = false,
   ) {
     val uri =
       when (source) {
@@ -98,6 +99,12 @@ object MediaUtils {
     intent.setClass(context, PlayerActivity::class.java)
     intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    val audioExtensions = setOf("mp3", "m4a", "aac", "flac", "ogg", "opus", "wav", "wma", "ape", "alac", "aiff")
+    val extension = uri.lastPathSegment?.substringAfterLast('.', "")?.substringBefore('?')?.lowercase()
+    if (audioOnly || extension in audioExtensions) {
+      intent.putExtra("audio_only", true)
+      intent.setDataAndType(uri, "audio/*")
+    }
     launchSource?.let { intent.putExtra("launch_source", it) }
     context.startActivity(intent)
   }
