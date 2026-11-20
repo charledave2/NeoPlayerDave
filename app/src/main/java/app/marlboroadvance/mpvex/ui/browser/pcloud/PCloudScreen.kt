@@ -23,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.twotone.Search
 import androidx.compose.material.icons.twotone.Cloud
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -91,11 +93,15 @@ object PCloudScreen : Screen {
     var error by remember { mutableStateOf<String?>(null) }
     var accountMessage by remember { mutableStateOf<String?>(null) }
     var refreshCounter by remember { mutableIntStateOf(0) }
+    var libraryRefreshLoaded by remember { mutableIntStateOf(-1) }
     var mediaFilter by rememberSaveable { mutableIntStateOf(0) }
     var selectedPhoto by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var libraryEntries by remember { mutableStateOf(emptyList<PCloudEntry>()) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var showSearch by rememberSaveable { mutableStateOf(false) }
 
     fun goBack() {
-      if (folderStack.isNotEmpty()) {
+      if (mediaFilter == 4 && folderStack.isNotEmpty()) {
         val previous = folderStack.last()
         folderStack = folderStack.dropLast(1)
         currentFolderId = previous.first
@@ -110,30 +116,46 @@ object PCloudScreen : Screen {
     DisposableEffect(lifecycleOwner) {
       val observer = LifecycleEventObserver { _, event ->
         if (event == Lifecycle.Event.ON_RESUME) {
+          val wasConnected = connected
           connected = PCloudAuth.isConnected(context)
           accountMessage = PCloudAuth.takeLastMessage(context)
-          refreshCounter++
+          if (!wasConnected && connected) refreshCounter++
         }
       }
       lifecycleOwner.lifecycle.addObserver(observer)
       onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LaunchedEffect(connected, currentFolderId, refreshCounter) {
+    LaunchedEffect(connected, currentFolderId, refreshCounter, mediaFilter) {
       if (!connected) {
         entries = emptyList()
+        libraryEntries = emptyList()
         return@LaunchedEffect
       }
 
-      isLoading = true
-      error = null
-      try {
-        entries = PCloudApi.listFolder(context, currentFolderId)
-      } catch (exception: Exception) {
-        error = exception.message ?: "Could not load this pCloud folder."
-        connected = PCloudAuth.isConnected(context)
-      } finally {
-        isLoading = false
+      if (mediaFilter == 4) {
+        isLoading = true
+        error = null
+        try {
+          entries = PCloudApi.listFolder(context, currentFolderId)
+        } catch (exception: Exception) {
+          error = exception.message ?: "Could not load this pCloud folder."
+          connected = PCloudAuth.isConnected(context)
+        } finally {
+          isLoading = false
+        }
+      } else if (libraryRefreshLoaded != refreshCounter) {
+        isLoading = true
+        error = null
+        try {
+          libraryEntries = PCloudApi.listMediaLibrary(context)
+          libraryRefreshLoaded = refreshCounter
+        } catch (exception: Exception) {
+          error = exception.message ?: "Could not scan the pCloud library."
+          connected = PCloudAuth.isConnected(context)
+        } finally {
+          isLoading = false
+        }
       }
     }
 
@@ -142,7 +164,7 @@ object PCloudScreen : Screen {
         TopAppBar(
           title = {
             Text(
-              text = currentFolderName,
+              text = if (mediaFilter == 4) currentFolderName else "pCloud · ${listOf("All", "Videos", "Photos", "Music")[mediaFilter]}",
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
@@ -153,12 +175,20 @@ object PCloudScreen : Screen {
             }
           },
           actions = {
+            IconButton(onClick = { showSearch = !showSearch; if (!showSearch) query = "" }) {
+              Icon(Icons.TwoTone.Search, contentDescription = "Search pCloud media")
+            }
+            IconButton(onClick = { refreshCounter++ }) {
+              Icon(Icons.Filled.Refresh, contentDescription = "Refresh pCloud library")
+            }
             if (connected) {
               TextButton(
                 onClick = {
                   PCloudAuth.signOut(context)
                   connected = false
                   entries = emptyList()
+                  libraryEntries = emptyList()
+                  libraryRefreshLoaded = -1
                   folderStack = emptyList()
                   currentFolderId = 0L
                   currentFolderName = "pCloud"
@@ -243,15 +273,32 @@ object PCloudScreen : Screen {
                 style = MaterialTheme.typography.bodyMedium,
               )
             }
-            Text(
-              text = "Browse and stream pCloud media. WebDAV remains available in Network for other storage servers.",
-              style = MaterialTheme.typography.bodySmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (mediaFilter == 4) {
+              Text(
+                text = "Browse folders in your pCloud account.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+            } else {
+              Text(
+                text = "Media from across your pCloud folders, grouped by type.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+            }
             ScrollableTabRow(selectedTabIndex = mediaFilter, edgePadding = 0.dp) {
-              listOf("All", "Videos", "Photos", "Music").forEachIndexed { index, label ->
-                Tab(selected = mediaFilter == index, onClick = { mediaFilter = index }, text = { Text(label) })
+              listOf("All", "Videos", "Photos", "Music", "Folders").forEachIndexed { index, label ->
+                Tab(selected = mediaFilter == index, onClick = { mediaFilter = index; query = "" }, text = { Text(label) })
               }
+            }
+            if (showSearch) {
+              androidx.compose.material3.TextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                placeholder = { Text(if (mediaFilter == 4) "Search this folder" else "Search pCloud media") },
+                singleLine = true,
+              )
             }
           }
           if (isLoading) {
@@ -275,12 +322,26 @@ object PCloudScreen : Screen {
               )
             }
           }
-          val filteredEntries = entries.filter { entry ->
-            if (entry.isFolder || mediaFilter == 0) true else when (mediaFilter) {
+          val sourceEntries = if (mediaFilter == 4) entries else libraryEntries
+          val filteredEntries = sourceEntries.filter { entry ->
+            val matchesType = if (mediaFilter == 4) true else when (mediaFilter) {
+              0 -> mediaKind(entry.name) != "other"
               1 -> mediaKind(entry.name) == "video"
               2 -> mediaKind(entry.name) == "image"
               3 -> mediaKind(entry.name) == "audio"
-              else -> true
+              else -> false
+            }
+            val matchesSearch = query.isBlank() || entry.name.contains(query, true) || entry.path.contains(query, true)
+            matchesType && (mediaFilter == 4 || !entry.isFolder) && matchesSearch
+          }
+          if (!isLoading && error == null && filteredEntries.isEmpty()) {
+            item {
+              Text(
+                text = if (query.isNotBlank()) "No matching pCloud media." else if (mediaFilter == 4) "This folder is empty." else "No media found in your pCloud account.",
+                modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyLarge,
+              )
             }
           }
           items(filteredEntries, key = { (it.folderId ?: it.fileId).toString() }) { entry ->
@@ -421,6 +482,15 @@ private fun PCloudEntryCard(entry: PCloudEntry, onClick: () -> Unit) {
           maxLines = 1,
           overflow = TextOverflow.Ellipsis,
         )
+        if (!entry.isFolder && entry.path.isNotBlank() && entry.path != entry.name) {
+          Text(
+            entry.path.substringBeforeLast('/', entry.path),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+        }
         if (!entry.isFolder && entry.size > 0) {
           Text(
             formatPCloudSize(entry.size),
