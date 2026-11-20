@@ -42,6 +42,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -105,6 +107,8 @@ private data class LibraryMedia(
   val album: String = "",
   val genres: Set<String> = emptySet(),
   val year: Int? = null,
+  val size: Long = 0L,
+  val dateAdded: Long = 0L,
 )
 
 @Serializable
@@ -118,17 +122,36 @@ object MediaLibraryScreen : Screen {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val categories = categoriesFor(section)
-    var categoryIndex by rememberSaveable(section) { mutableIntStateOf(0) }
+    val navigationPrefs = remember(context) { context.getSharedPreferences("media_navigation_state", android.content.Context.MODE_PRIVATE) }
+    var categoryIndex by rememberSaveable(section) {
+      mutableIntStateOf(navigationPrefs.getInt("${section.name}_category", 0))
+    }
     val safeCategoryIndex = categoryIndex.coerceIn(categories.indices)
     val category = categories[safeCategoryIndex]
-    var sourceIndex by rememberSaveable(section) { mutableIntStateOf(0) }
+    var sourceIndex by rememberSaveable(section) {
+      mutableIntStateOf(navigationPrefs.getInt("${section.name}_source", 0))
+    }
+    var sortIndex by rememberSaveable(section) {
+      mutableIntStateOf(navigationPrefs.getInt("${section.name}_sort", 0).coerceIn(0, 2))
+    }
+    var showSortMenu by remember { mutableStateOf(false) }
     var refreshKey by remember { mutableIntStateOf(0) }
-    var query by rememberSaveable { mutableStateOf("") }
-    var showSearch by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable(section) { mutableStateOf("") }
+    var showSearch by rememberSaveable(section) { mutableStateOf(false) }
     var selectedGroup by rememberSaveable(section) { mutableStateOf<String?>(null) }
     var selectedPhoto by remember { mutableStateOf<LibraryMedia?>(null) }
     var media by remember { mutableStateOf(emptyList<LibraryMedia>()) }
     var loading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(section, safeCategoryIndex) {
+      navigationPrefs.edit().putInt("${section.name}_category", safeCategoryIndex).apply()
+    }
+    LaunchedEffect(section, sourceIndex) {
+      navigationPrefs.edit().putInt("${section.name}_source", sourceIndex).apply()
+    }
+    LaunchedEffect(section, sortIndex) {
+      navigationPrefs.edit().putInt("${section.name}_sort", sortIndex).apply()
+    }
 
     val mediaPermissions = remember {
       if (Build.VERSION.SDK_INT >= 34) listOf(
@@ -175,7 +198,7 @@ object MediaLibraryScreen : Screen {
       media.filter { item ->
         val isShow = tvEpisode.matches(item.title) || tvEpisode.matches(item.path) ||
           item.path.contains("/tv/", true) || item.path.contains("/series/", true) || item.path.contains("/shows/", true)
-        val isOtherVideo = item.path.contains("/dcim/", true) || item.path.contains("/camera/", true) || item.path.contains("whatsapp video", true)
+        val isOtherVideo = isOtherVideoPath(item.path)
         val matchesCategory = when (category) {
           LibraryCategory.Movies -> !isShow && !isOtherVideo
           LibraryCategory.Shows -> isShow
@@ -187,6 +210,7 @@ object MediaLibraryScreen : Screen {
           (query.isBlank() || item.title.contains(query, true) || item.subtitle.contains(query, true) || item.path.contains(query, true))
       }
     }
+    val sortedItems = remember(filtered, sortIndex) { sortedMedia(filtered, sortIndex) }
 
     val cloudFilter = when {
       category == LibraryCategory.VideoFolders -> 4
@@ -200,6 +224,17 @@ object MediaLibraryScreen : Screen {
         TopAppBar(
           title = { Text(section.title, fontWeight = FontWeight.SemiBold) },
           actions = {
+            Box {
+              TextButton(onClick = { showSortMenu = true }) { Text("Sort: ${listOf("Name", "Newest", "Largest")[sortIndex]}") }
+              DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
+                listOf("Name", "Newest", "Largest").forEachIndexed { index, label ->
+                  DropdownMenuItem(
+                    text = { Text(if (sortIndex == index) "✓ $label" else label) },
+                    onClick = { sortIndex = index; showSortMenu = false },
+                  )
+                }
+              }
+            }
             TextButton(onClick = { refreshKey++ }) { Text("Refresh") }
             IconButton(onClick = { showSearch = !showSearch; if (!showSearch) query = "" }) {
               Icon(Icons.TwoTone.Search, contentDescription = "Search media")
@@ -236,7 +271,9 @@ object MediaLibraryScreen : Screen {
         }
 
         if (sourceIndex == 1) {
-          Box(Modifier.fillMaxSize().weight(1f)) { PCloudScreen.ContentFor(cloudFilter) }
+          Box(Modifier.fillMaxSize().weight(1f)) {
+            PCloudScreen.ContentFor(cloudFilter, section.title, category.title, query, refreshKey, sortIndex)
+          }
         } else when {
           section == MediaSection.Videos && category == LibraryCategory.VideoFolders -> app.marlboroadvance.mpvex.ui.browser.folderlist.FolderListScreen.Content()
           section == MediaSection.Music && category == LibraryCategory.Playlists -> app.marlboroadvance.mpvex.ui.browser.playlist.PlaylistScreen.Content()
@@ -263,7 +300,7 @@ object MediaLibraryScreen : Screen {
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
           ) {
-            items(groupedMedia(filtered, category), key = { it.first }) { (name, files) ->
+            items(groupedMedia(filtered, category, sortIndex), key = { it.first }) { (name, files) ->
               GroupCard(name, files.size, categoryIcon(category)) { selectedGroup = name }
             }
           }
@@ -274,8 +311,9 @@ object MediaLibraryScreen : Screen {
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
           ) {
-            items(filtered.size, key = { filtered[it].id }) { index ->
-              PhotoTile(filtered[index], onClick = { selectedPhoto = filtered[index] })
+            items(sortedItems.size, key = { sortedItems[it].id }) { index ->
+              val photo = sortedItems[index]
+              PhotoTile(photo, onClick = { selectedPhoto = photo })
             }
           }
           section == MediaSection.Music && category in listOf(LibraryCategory.Albums, LibraryCategory.Artists, LibraryCategory.Genres) && selectedGroup == null -> LazyColumn(
@@ -283,7 +321,7 @@ object MediaLibraryScreen : Screen {
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
           ) {
-            items(groupedMedia(filtered, category), key = { it.first }) { (name, files) ->
+            items(groupedMedia(filtered, category, sortIndex), key = { it.first }) { (name, files) ->
               GroupCard(name, files.size, categoryIcon(category)) { selectedGroup = name }
             }
           }
@@ -292,8 +330,8 @@ object MediaLibraryScreen : Screen {
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
           ) {
-            items(filtered, key = { it.id }) { item ->
-              MusicRow(item) { playAudioQueue(filtered, filtered.indexOf(item), context) }
+            items(sortedItems, key = { it.id }) { item ->
+              MusicRow(item) { playAudioQueue(sortedItems, sortedItems.indexOf(item), context) }
             }
           }
           else -> LazyColumn(
@@ -301,7 +339,7 @@ object MediaLibraryScreen : Screen {
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
           ) {
-            items(filtered, key = { it.id }) { item ->
+            items(sortedItems, key = { it.id }) { item ->
               MediaRow(item, category) { MediaUtils.playFile(item.uri, context, "media_library") }
             }
           }
@@ -319,6 +357,14 @@ private fun categoriesFor(section: MediaSection): List<LibraryCategory> = when (
   MediaSection.Photos -> listOf(LibraryCategory.PhotoAlbums, LibraryCategory.PhotoFolders, LibraryCategory.PhotoYears)
 }
 
+private fun isOtherVideoPath(path: String): Boolean {
+  val normalized = path.replace('\\', '/').lowercase(Locale.ROOT)
+  return listOf(
+    "/dcim/", "/camera/", "/screenshots/", "/screen recordings/", "/screenrecord/",
+    "/downloads/", "/whatsapp video/", "/telegram/", "/recordings/",
+  ).any(normalized::contains)
+}
+
 private fun groupName(item: LibraryMedia, category: LibraryCategory): String = when (category) {
   LibraryCategory.Albums -> item.album.ifBlank { "Unknown album" }
   LibraryCategory.Artists -> item.artist.ifBlank { "Unknown artist" }
@@ -329,8 +375,20 @@ private fun groupName(item: LibraryMedia, category: LibraryCategory): String = w
   else -> ""
 }
 
-private fun groupedMedia(items: List<LibraryMedia>, category: LibraryCategory): List<Pair<String, List<LibraryMedia>>> =
-  items.groupBy { groupName(it, category) }.toList().sortedBy { it.first.lowercase() }
+private fun groupedMedia(items: List<LibraryMedia>, category: LibraryCategory, sortIndex: Int): List<Pair<String, List<LibraryMedia>>> {
+  val groups = items.groupBy { groupName(it, category) }.toList()
+  return when (sortIndex) {
+    1 -> groups.sortedByDescending { (_, members) -> members.maxOfOrNull { it.dateAdded } ?: 0L }
+    2 -> groups.sortedByDescending { (_, members) -> members.sumOf { it.size } }
+    else -> groups.sortedBy { it.first.lowercase(Locale.ROOT) }
+  }
+}
+
+private fun sortedMedia(items: List<LibraryMedia>, sortIndex: Int): List<LibraryMedia> = when (sortIndex) {
+  1 -> items.sortedByDescending { it.dateAdded }
+  2 -> items.sortedByDescending { it.size }
+  else -> items.sortedBy { it.title.lowercase(Locale.ROOT) }
+}
 
 @Composable
 private fun GroupCard(name: String, count: Int, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
@@ -355,17 +413,17 @@ private suspend fun loadMedia(context: android.content.Context, section: MediaSe
   val (collection, projection, type) = when (section) {
     MediaSection.Photos -> Triple(
       MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-      arrayOf(MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME, MediaStore.Images.Media.BUCKET_DISPLAY_NAME, MediaStore.Images.Media.MIME_TYPE, MediaStore.Images.Media.DATE_ADDED, MediaStore.Images.Media.DATA, MediaStore.Images.Media.DATE_TAKEN),
+      arrayOf(MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME, MediaStore.Images.Media.BUCKET_DISPLAY_NAME, MediaStore.Images.Media.MIME_TYPE, MediaStore.Images.Media.DATE_ADDED, MediaStore.Images.Media.DATA, MediaStore.Images.Media.DATE_TAKEN, MediaStore.Images.Media.SIZE),
       "photo",
     )
     MediaSection.Music -> Triple(
       MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-      arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.ALBUM_ID, MediaStore.Audio.Media.MIME_TYPE, MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.DATA, MediaStore.Audio.Media.IS_MUSIC),
+      arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.ALBUM_ID, MediaStore.Audio.Media.MIME_TYPE, MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.DATA, MediaStore.Audio.Media.IS_MUSIC, MediaStore.Audio.Media.SIZE, MediaStore.Audio.Media.DATE_ADDED),
       "audio",
     )
     MediaSection.Videos -> Triple(
       MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-      arrayOf(MediaStore.Video.Media._ID, MediaStore.Video.Media.DISPLAY_NAME, MediaStore.Video.Media.BUCKET_DISPLAY_NAME, MediaStore.Video.Media.MIME_TYPE, MediaStore.Video.Media.DURATION, MediaStore.Video.Media.DATA, MediaStore.Video.Media.DATE_ADDED),
+      arrayOf(MediaStore.Video.Media._ID, MediaStore.Video.Media.DISPLAY_NAME, MediaStore.Video.Media.BUCKET_DISPLAY_NAME, MediaStore.Video.Media.MIME_TYPE, MediaStore.Video.Media.DURATION, MediaStore.Video.Media.DATA, MediaStore.Video.Media.DATE_ADDED, MediaStore.Video.Media.SIZE),
       "video",
     )
   }
@@ -384,7 +442,13 @@ private suspend fun loadMedia(context: android.content.Context, section: MediaSe
           val dateTaken = cursor.getLong(6)
           val yearTimestamp = if (dateTaken > 0L) dateTaken else cursor.getLong(4) * 1000L
           val year = java.util.Calendar.getInstance().apply { timeInMillis = yearTimestamp }.get(java.util.Calendar.YEAR)
-          results += LibraryMedia(id, title, folder, uri, mime, path = path, year = year.takeIf { year > 1970 })
+          results += LibraryMedia(
+            id, title, folder, uri, mime,
+            path = path,
+            year = year.takeIf { it > 1970 },
+            size = cursor.getLong(7),
+            dateAdded = cursor.getLong(4),
+          )
         }
         "audio" -> {
           val artist = cursor.getString(2)?.takeUnless { it == "<unknown>" }.orEmpty()
@@ -405,6 +469,8 @@ private suspend fun loadMedia(context: android.content.Context, section: MediaSe
             artist = artist,
             album = album,
             genres = genresByTrack[id].orEmpty(),
+            size = cursor.getLong(9),
+            dateAdded = cursor.getLong(10),
           )
         }
         else -> {
@@ -412,7 +478,11 @@ private suspend fun loadMedia(context: android.content.Context, section: MediaSe
           val mime = cursor.getString(3).orEmpty()
           val duration = cursor.getLong(4)
           val path = cursor.getString(5).orEmpty()
-          results += LibraryMedia(id, title.substringBeforeLast('.'), folder, uri, mime, duration, path)
+          results += LibraryMedia(
+            id, title.substringBeforeLast('.'), folder, uri, mime, duration, path,
+            size = cursor.getLong(7),
+            dateAdded = cursor.getLong(6),
+          )
         }
       }
     }
