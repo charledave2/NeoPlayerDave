@@ -34,11 +34,11 @@ jobs:
         run: ./gradlew assembleStandardDebug -Pandroid.injected.build.abi=arm64-v8a --max-workers=1
 
       - name: Show debug APK output
-        run: find app/build/outputs/apk/standard/debug -maxdepth 1 -type f -name '*.apk' -print
+        run: find app/build/outputs -type f -name '*.apk' -print
 
       - name: Upload installable arm64 debug test APK
         uses: actions/upload-artifact@v4
         with:
           name: app-standard-arm64-v8a-debug-test-${{ env.SHORT_SHA }}
-          path: app/build/outputs/apk/standard/debug/*.apk
+          path: app/build/outputs/**/*.apk
           if-no-files-found: error
