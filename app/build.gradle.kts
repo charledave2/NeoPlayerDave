@@ -190,6 +190,7 @@ dependencies {
   implementation(libs.androidx.compose.animation.graphics)
   implementation(libs.mediasession)
   implementation(libs.androidx.documentfile)
+  implementation("androidx.exifinterface:exifinterface:1.4.2")
   implementation(libs.saveable)
 
   implementation(platform(libs.koin.bom))
