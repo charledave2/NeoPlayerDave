@@ -16,10 +16,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.twotone.PlaylistPlay
-import androidx.compose.material.icons.twotone.History
+import androidx.compose.material.icons.twotone.Image
+import androidx.compose.material.icons.twotone.MusicNote
+import androidx.compose.material.icons.twotone.Settings
 import androidx.compose.material.icons.twotone.VideoLibrary
-import androidx.compose.material.icons.twotone.Language
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -41,10 +41,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import app.marlboroadvance.mpvex.presentation.Screen
-import app.marlboroadvance.mpvex.ui.browser.networkstreaming.NetworkStreamingScreen
-import app.marlboroadvance.mpvex.ui.browser.playlist.PlaylistScreen
-import app.marlboroadvance.mpvex.ui.browser.recentlyplayed.RecentlyPlayedScreen
 import app.marlboroadvance.mpvex.ui.browser.selection.SelectionManager
+import app.marlboroadvance.mpvex.ui.preferences.PreferencesScreen
 import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 
@@ -187,26 +185,26 @@ object MainScreen : Screen {
               )
           ) {
             NavigationBarItem(
-              icon = { Icon(Icons.TwoTone.VideoLibrary, contentDescription = "Library", modifier = Modifier.size(20.dp)) },
-              label = { Text("Library") },
+              icon = { Icon(Icons.TwoTone.VideoLibrary, contentDescription = "Videos", modifier = Modifier.size(20.dp)) },
+              label = { Text("Videos") },
               selected = selectedTab == 0,
               onClick = { selectedTab = 0 }
             )
             NavigationBarItem(
-              icon = { Icon(Icons.TwoTone.History, contentDescription = "Recents", modifier = Modifier.size(20.dp)) },
-              label = { Text("Recents") },
+              icon = { Icon(Icons.TwoTone.MusicNote, contentDescription = "Music", modifier = Modifier.size(20.dp)) },
+              label = { Text("Music") },
               selected = selectedTab == 1,
               onClick = { selectedTab = 1 }
             )
             NavigationBarItem(
-              icon = { Icon(Icons.AutoMirrored.TwoTone.PlaylistPlay, contentDescription = "Playlists", modifier = Modifier.size(20.dp)) },
-              label = { Text("Playlists") },
+              icon = { Icon(Icons.TwoTone.Image, contentDescription = "Photos", modifier = Modifier.size(20.dp)) },
+              label = { Text("Photos") },
               selected = selectedTab == 2,
               onClick = { selectedTab = 2 }
             )
             NavigationBarItem(
-              icon = { Icon(Icons.TwoTone.Language, contentDescription = "Network", modifier = Modifier.size(20.dp)) },
-              label = { Text("Network") },
+              icon = { Icon(Icons.TwoTone.Settings, contentDescription = "Settings", modifier = Modifier.size(20.dp)) },
+              label = { Text("Settings") },
               selected = selectedTab == 3,
               onClick = { selectedTab = 3 }
             )
@@ -283,10 +281,10 @@ object MainScreen : Screen {
             LocalNavigationBarHeight provides fabBottomPadding
           ) {
             when (targetTab) {
-              0 -> MediaLibraryScreen.Content()
-              1 -> RecentlyPlayedScreen.Content()
-              2 -> PlaylistScreen.Content()
-              3 -> NetworkStreamingScreen.Content()
+              0 -> MediaLibraryScreen.Content(MediaSection.Videos)
+              1 -> MediaLibraryScreen.Content(MediaSection.Music)
+              2 -> MediaLibraryScreen.Content(MediaSection.Photos)
+              3 -> PreferencesScreen.Content()
             }
           }
         }
