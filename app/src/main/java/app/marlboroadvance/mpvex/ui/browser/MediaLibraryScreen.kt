@@ -358,7 +358,7 @@ private fun categoriesFor(section: MediaSection): List<LibraryCategory> = when (
 }
 
 private fun isOtherVideoPath(path: String): Boolean {
-  val normalized = path.replace('\\', '/').lowercase(Locale.ROOT)
+  val normalized = "/${path.replace('\\', '/').trim('/')}/".lowercase(Locale.ROOT)
   return listOf(
     "/dcim/", "/camera/", "/screenshots/", "/screen recordings/", "/screenrecord/",
     "/downloads/", "/whatsapp video/", "/telegram/", "/recordings/",
