@@ -18,6 +18,7 @@ import java.io.IOException
 import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.util.concurrent.TimeUnit
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -44,6 +45,8 @@ data class PCloudEntry(
   val folderId: Long?,
   val fileId: Long?,
   val size: Long,
+  val path: String = name,
+  val parentFolderId: Long? = null,
 )
 
 object PCloudAuth {
@@ -238,7 +241,11 @@ class PCloudOAuthCallbackActivity : Activity() {
 }
 
 object PCloudApi {
-  private val client = OkHttpClient()
+  private val client = OkHttpClient.Builder()
+    .connectTimeout(20, TimeUnit.SECONDS)
+    .readTimeout(60, TimeUnit.SECONDS)
+    .callTimeout(90, TimeUnit.SECONDS)
+    .build()
 
   suspend fun listFolder(context: Context, folderId: Long): List<PCloudEntry> =
     withContext(Dispatchers.IO) {
@@ -264,12 +271,69 @@ object PCloudApi {
                 folderId = if (isFolder) id else null,
                 fileId = if (isFolder) null else id,
                 size = item.optLong("size", 0L),
+                path = item.optString("path", item.optString("name", "Untitled")),
+                parentFolderId = folderId,
               ),
             )
           }
         }
       }.sortedWith(compareBy<PCloudEntry> { !it.isFolder }.thenBy { it.name.lowercase() })
     }
+
+  /** Returns every supported media file in the account tree with its relative folder path. */
+  suspend fun listMediaLibrary(context: Context): List<PCloudEntry> =
+    withContext(Dispatchers.IO) {
+      val response = call(
+        context,
+        "listfolder",
+        "folderid" to "0",
+        "recursive" to "1",
+      )
+      val root = response.optJSONObject("metadata")
+        ?: throw IOException("pCloud returned no library information.")
+      val result = mutableListOf<PCloudEntry>()
+
+      fun visit(folder: JSONObject, parentPath: String, parentFolderId: Long) {
+        val contents = folder.optJSONArray("contents") ?: return
+        for (index in 0 until contents.length()) {
+          val item = contents.optJSONObject(index) ?: continue
+          val name = item.optString("name", "Untitled")
+          val path = if (parentPath.isEmpty()) name else "$parentPath/$name"
+          val isFolder = item.optBoolean("isfolder", false)
+          val id = if (isFolder) {
+            item.optLong("folderid", 0L).takeIf { it > 0L }
+          } else {
+            item.optLong("fileid", 0L).takeIf { it > 0L }
+          } ?: continue
+
+          if (isFolder) {
+            visit(item, path, id)
+          } else if (isSupportedMedia(name)) {
+            result += PCloudEntry(
+              name = name,
+              isFolder = false,
+              folderId = null,
+              fileId = id,
+              size = item.optLong("size", 0L),
+              path = path,
+              parentFolderId = parentFolderId,
+            )
+          }
+        }
+      }
+
+      visit(root, "", 0L)
+      result.sortedWith(compareBy<PCloudEntry> { it.name.lowercase() }.thenBy { it.path.lowercase() })
+    }
+
+  private fun isSupportedMedia(name: String): Boolean {
+    val extension = name.substringAfterLast('.', "").lowercase()
+    return extension in VIDEO_EXTENSIONS || extension in IMAGE_EXTENSIONS || extension in AUDIO_EXTENSIONS
+  }
+
+  private val VIDEO_EXTENSIONS = setOf("mp4", "m4v", "mkv", "avi", "mov", "webm", "wmv", "mpeg", "mpg", "3gp", "ts")
+  private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "gif", "webp", "bmp", "heic", "heif", "tif", "tiff")
+  private val AUDIO_EXTENSIONS = setOf("mp3", "m4a", "aac", "flac", "ogg", "opus", "wav", "wma", "ape", "alac", "aiff")
 
   suspend fun getFileLink(context: Context, fileId: Long): String =
     withContext(Dispatchers.IO) {
@@ -289,7 +353,7 @@ object PCloudApi {
   private fun call(
     context: Context,
     method: String,
-    parameter: Pair<String, String>,
+    vararg parameters: Pair<String, String>,
   ): JSONObject {
     val credentials = PCloudAuth.credentials(context)
       ?: throw IOException("Connect to pCloud again to continue.")
@@ -297,7 +361,7 @@ object PCloudApi {
       .scheme("https")
       .authority(credentials.apiHost)
       .appendPath(method)
-      .appendQueryParameter(parameter.first, parameter.second)
+      .apply { parameters.forEach { (name, value) -> appendQueryParameter(name, value) } }
       .build()
     val request = Request.Builder()
       .url(uri.toString())
