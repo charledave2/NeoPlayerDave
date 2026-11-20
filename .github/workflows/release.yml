@@ -123,6 +123,9 @@ jobs:
             - Dedicated audio-only player with queue, seek, shuffle, repeat, background playback, and media controls.
             - pCloud browsing now filters Videos, Photos, and Music; network sources expose audio and image files too.
             - pCloud OAuth sign-in and direct cloud browsing/streaming (requires PCLOUD_CLIENT_ID Actions secret).
+            - RAW photo viewing can show embedded previews (including CR2) when available.
+            - Missing local music album art can be fetched from MusicBrainz and Cover Art Archive.
+            - Fixed pCloud library loading and refreshed the media browsing layout with video poster cards and clearer retry states.
             - Pcloud Media Manager personal ARM64 release: one signed APK.
 
             **SHA-256:** ${{ env.apk_sha256 }}

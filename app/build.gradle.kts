@@ -22,8 +22,8 @@ android {
     applicationId = "app.marlboroadvance.mpvex"
     minSdk = 26
     targetSdk = 36
-    versionCode = 134
-    versionName = "1.3.0"
+    versionCode = 136
+    versionName = "1.3.2"
 
     vectorDrawables {
       useSupportLibrary = true
@@ -190,6 +190,7 @@ dependencies {
   implementation(libs.androidx.compose.animation.graphics)
   implementation(libs.mediasession)
   implementation(libs.androidx.documentfile)
+  implementation("androidx.exifinterface:exifinterface:1.4.2")
   implementation(libs.saveable)
 
   implementation(platform(libs.koin.bom))
