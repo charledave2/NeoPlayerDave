@@ -58,6 +58,8 @@ import app.marlboroadvance.mpvex.ui.browser.components.BrowserTopBar
 import app.marlboroadvance.mpvex.ui.browser.cards.NetworkConnectionCard
 import app.marlboroadvance.mpvex.ui.browser.dialogs.AddConnectionSheet
 import app.marlboroadvance.mpvex.ui.browser.dialogs.EditConnectionSheet
+import app.marlboroadvance.mpvex.ui.browser.pcloud.PCloudAccessCard
+import app.marlboroadvance.mpvex.ui.browser.pcloud.PCloudScreen
 import app.marlboroadvance.mpvex.ui.browser.states.EmptyState
 import app.marlboroadvance.mpvex.ui.preferences.PreferencesScreen
 import app.marlboroadvance.mpvex.ui.utils.LocalBackStack
@@ -171,6 +173,11 @@ object NetworkStreamingScreen : Screen {
                 MediaUtils.playFile(url, context, "network_stream")
               },
             )
+          }
+
+          // pCloud OAuth access
+          item {
+            PCloudAccessCard(onClick = { backstack.add(PCloudScreen) })
           }
 
           // Section 2: Local Network header
@@ -290,102 +297,101 @@ private fun StreamLinkSection(
 ) {
   val context = LocalContext.current
   var linkUrl by rememberSaveable { mutableStateOf("") }
+  var expanded by rememberSaveable { mutableStateOf(false) }
 
   Column(
     modifier = Modifier.fillMaxWidth(),
+    verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
-    Text(
-      text = "Stream Link",
-      style = MaterialTheme.typography.titleLarge,
-      fontWeight = FontWeight.Bold,
-      color = MaterialTheme.colorScheme.primary,
-      modifier = Modifier.padding(vertical = 8.dp),
-    )
-    Card(
-      modifier = Modifier.fillMaxWidth(),
-      colors = CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+    FilledTonalButton(
+      onClick = { expanded = !expanded },
+      colors = ButtonDefaults.filledTonalButtonColors(
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
       ),
     ) {
-      Column(
-        modifier = Modifier.padding(16.dp),
-      ) {
-        OutlinedTextField(
-          value = linkUrl,
-          onValueChange = { linkUrl = it },
-          label = { Text("Video URL") },
-          placeholder = {
-            Text(
-              text = "https://example.com/video.mp4",
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-          },
-          leadingIcon = {
-            Icon(
-              imageVector = Icons.Filled.Link,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-          },
-          modifier = Modifier.fillMaxWidth(),
-          singleLine = true,
-        )
-        Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 12.dp),
-          horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-        ) {
-          FilledTonalButton(
-            onClick = {
-              val clipboardManager =
-                context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-              val clipData = clipboardManager?.primaryClip
-              if (clipData != null && clipData.itemCount > 0) {
-                val text = clipData.getItemAt(0).text?.toString() ?: ""
-                if (text.isNotBlank()) {
-                  linkUrl = text
-                }
-              }
-            },
-            colors = ButtonDefaults.filledTonalButtonColors(
-              containerColor = MaterialTheme.colorScheme.secondaryContainer,
-              contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            ),
-          ) {
-            Icon(
-              imageVector = Icons.Filled.ContentPaste,
-              contentDescription = null,
-              modifier = Modifier.padding(end = 8.dp),
-            )
-            Text(
-              text = "Paste",
-              fontWeight = FontWeight.Bold,
-            )
-          }
+      Icon(Icons.Filled.Link, contentDescription = null)
+      Spacer(modifier = Modifier.size(8.dp))
+      Text(if (expanded) "Hide Stream Link" else "Open Stream Link")
+    }
 
-          FilledTonalButton(
-            onClick = {
-              if (linkUrl.isNotBlank()) {
-                onPlayLink(linkUrl)
-                linkUrl = ""
-              }
+    if (expanded) {
+      Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+          containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+      ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+          OutlinedTextField(
+            value = linkUrl,
+            onValueChange = { linkUrl = it },
+            label = { Text("Video URL") },
+            placeholder = {
+              Text(
+                text = "https://example.com/video.mp4",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
             },
-            enabled = linkUrl.isNotBlank(),
-            colors = ButtonDefaults.filledTonalButtonColors(
-              containerColor = MaterialTheme.colorScheme.primaryContainer,
-              contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            ),
+            leadingIcon = {
+              Icon(
+                imageVector = Icons.Filled.Link,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+            },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+          )
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(top = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
           ) {
-            Icon(
-              imageVector = Icons.Filled.PlayArrow,
-              contentDescription = null,
-              modifier = Modifier.padding(end = 8.dp),
-            )
-            Text(
-              text = "Play",
-              fontWeight = FontWeight.Bold,
-            )
+            FilledTonalButton(
+              onClick = {
+                val clipboardManager =
+                  context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                val clipData = clipboardManager?.primaryClip
+                if (clipData != null && clipData.itemCount > 0) {
+                  val text = clipData.getItemAt(0).text?.toString() ?: ""
+                  if (text.isNotBlank()) linkUrl = text
+                }
+              },
+              colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+              ),
+            ) {
+              Icon(
+                imageVector = Icons.Filled.ContentPaste,
+                contentDescription = null,
+                modifier = Modifier.padding(end = 8.dp),
+              )
+              Text("Paste", fontWeight = FontWeight.Bold)
+            }
+
+            FilledTonalButton(
+              onClick = {
+                if (linkUrl.isNotBlank()) {
+                  onPlayLink(linkUrl)
+                  linkUrl = ""
+                }
+              },
+              enabled = linkUrl.isNotBlank(),
+              colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+              ),
+            ) {
+              Icon(
+                imageVector = Icons.Filled.PlayArrow,
+                contentDescription = null,
+                modifier = Modifier.padding(end = 8.dp),
+              )
+              Text("Play", fontWeight = FontWeight.Bold)
+            }
           }
         }
       }

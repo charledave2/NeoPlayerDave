@@ -9,6 +9,11 @@ plugins {
   alias(libs.plugins.room)
 }
 
+val pcloudClientId = providers.gradleProperty("pcloudClientId")
+  .orElse(providers.environmentVariable("PCLOUD_CLIENT_ID"))
+  .getOrElse("")
+val escapedPcloudClientId = pcloudClientId.replace("\\", "\\\\").replace("\"", "\\\"")
+
 android {
   namespace = "app.marlboroadvance.mpvex"
   compileSdk = 36
@@ -17,13 +22,14 @@ android {
     applicationId = "app.marlboroadvance.mpvex"
     minSdk = 26
     targetSdk = 36
-    versionCode = 130
-    versionName = "1.2.10"
+    versionCode = 131
+    versionName = "1.2.11"
 
     vectorDrawables {
       useSupportLibrary = true
     }
 
+    buildConfigField("String", "PCLOUD_CLIENT_ID", "\"$escapedPcloudClientId\"")
     buildConfigField("String", "GIT_SHA", "\"${getCommitSha()}\"")
     buildConfigField("int", "GIT_COUNT", getCommitCount())
   }
@@ -65,8 +71,8 @@ android {
     abi {
       isEnable = true
       reset()
-      include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
-      isUniversalApk = true
+      include("arm64-v8a")
+      isUniversalApk = false
     }
   }
 
