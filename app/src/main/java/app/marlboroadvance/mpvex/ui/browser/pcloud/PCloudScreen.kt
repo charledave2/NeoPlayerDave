@@ -399,18 +399,24 @@ object PCloudScreen : Screen {
             }
           }
           val supportsGrouping = embedded && mediaFilter != 4 && (
-            (sectionTitle == "Music" && categoryTitle in setOf("Albums", "Artists", "Genres")) ||
+            (sectionTitle == "Music" && categoryTitle in setOf("Albums", "Artists", "Genres", "Playlists")) ||
               (sectionTitle == "Photos" && categoryTitle in setOf("Albums", "Folders", "Years"))
             )
-          val genreFoldersPresent = sectionTitle == "Music" && categoryTitle == "Genres" && typedEntries.any { entry ->
+          val genreFoldersPresent = sectionTitle == "Music" && categoryTitle == "Genres" && sourceEntries.any { entry ->
+            if (mediaKind(entry.name) != "audio") return@any false
             val folders = entry.path.split('/').dropLast(1)
             folders.indices.any { index ->
               (folders[index].equals("genre", true) || folders[index].equals("genres", true)) && index + 1 < folders.size
             }
           }
+          val playlistFoldersPresent = sectionTitle == "Music" && categoryTitle == "Playlists" && sourceEntries.any { entry ->
+            if (mediaKind(entry.name) != "audio") return@any false
+            val folders = entry.path.split('/').dropLast(1)
+            folders.indices.any { index -> folders[index].equals("playlists", true) && index + 1 < folders.size }
+          }
           val categoryEntries = if (
             (embedded && sectionTitle == "Music" && categoryTitle == "Genres" && !genreFoldersPresent) ||
-            (embedded && sectionTitle == "Music" && categoryTitle == "Playlists")
+            (embedded && sectionTitle == "Music" && categoryTitle == "Playlists" && !playlistFoldersPresent)
           ) emptyList() else typedEntries
           val filteredEntries = categoryEntries.filter { entry ->
             selectedCloudGroup == null || cloudGroupName(entry, sectionTitle, categoryTitle) == selectedCloudGroup
@@ -426,8 +432,8 @@ object PCloudScreen : Screen {
           val unsupportedCategoryMessage = when {
             embedded && sectionTitle == "Music" && categoryTitle == "Genres" && !genreFoldersPresent ->
               "pCloud’s file listing does not include audio genre tags. Add genre folders to browse tracks by folder, or use Local storage for device genre tags."
-            embedded && sectionTitle == "Music" && categoryTitle == "Playlists" ->
-              "Cloud playlist files are not indexed yet. Local playlists are available from Local storage."
+            embedded && sectionTitle == "Music" && categoryTitle == "Playlists" && !playlistFoldersPresent ->
+              "Organize cloud tracks under Playlists/<name>/ to browse playlist folders. pCloud playlist files are not parsed yet."
             else -> null
           }
           if (selectedCloudGroup != null) {
@@ -494,12 +500,13 @@ object PCloudScreen : Screen {
 
 private fun isShowEntry(entry: PCloudEntry): Boolean {
   val episodePattern = Regex("(?i).*(s\\d{1,2}e\\d{1,2}|\\d{1,2}x\\d{1,2}).*")
+  val path = "/${entry.path.trim('/')}/"
   return episodePattern.matches(entry.name) || episodePattern.matches(entry.path) ||
-    listOf("/tv/", "/series/", "/shows/", "/seasons/").any { entry.path.contains(it, true) }
+    listOf("/tv/", "/series/", "/shows/", "/seasons/").any { path.contains(it, true) }
 }
 
 private fun isOtherVideoEntry(entry: PCloudEntry): Boolean {
-  val path = entry.path.replace('\\', '/').lowercase()
+  val path = "/${entry.path.replace('\\', '/').trim('/')}/".lowercase()
   return listOf("/dcim/", "/camera/", "/screenshots/", "/screen recordings/", "/screenrecord/", "/downloads/", "/whatsapp video/", "/telegram/", "/recordings/").any(path::contains)
 }
 
@@ -512,6 +519,10 @@ private fun cloudGroupName(entry: PCloudEntry, section: String, category: String
   if (section == "Music" && category == "Genres") {
     val genreIndex = folders.indexOfLast { it.equals("genre", true) || it.equals("genres", true) }
     return folders.getOrNull(genreIndex + 1) ?: "Unsorted"
+  }
+  if (section == "Music" && category == "Playlists") {
+    val playlistIndex = folders.indexOfLast { it.equals("playlists", true) }
+    return folders.getOrNull(playlistIndex + 1) ?: "Unsorted"
   }
   return when {
     section == "Music" && category == "Artists" -> folders.getOrNull(folders.lastIndex - 1) ?: folders.lastOrNull() ?: "Unsorted"
