@@ -11,6 +11,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import app.marlboroadvance.mpvex.domain.network.NetworkConnection
 import app.marlboroadvance.mpvex.domain.network.NetworkFile
 import app.marlboroadvance.mpvex.domain.network.NetworkProtocol
+import app.marlboroadvance.mpvex.domain.network.resolvedMimeType
 import app.marlboroadvance.mpvex.repository.NetworkRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -81,6 +82,8 @@ class NetworkBrowserViewModel(
         val connection = repository.getConnectionById(connectionId)
           ?: throw Exception("Connection not found")
 
+        val mediaMimeType = file.resolvedMimeType() ?: "application/octet-stream"
+
         // Use proxy server for protocols that need seeking support
         val useProxy = connection.protocol in PROXY_PROTOCOLS
 
@@ -92,7 +95,7 @@ class NetworkBrowserViewModel(
             connection = connection,
             filePath = file.path,
             fileSize = file.size,
-            mimeType = file.mimeType ?: "video/mp4",
+            mimeType = mediaMimeType,
           )
           android.net.Uri.parse(proxyUrl)
         } else {
@@ -110,7 +113,8 @@ class NetworkBrowserViewModel(
         // Pass the original network file path for stable media identifier (position saving)
         intent.putExtra("network_file_path", file.path)
         intent.putExtra("network_connection_id", connectionId)
-        intent.setDataAndType(uri, file.mimeType ?: "video/*")
+        intent.setDataAndType(uri, mediaMimeType)
+        if (mediaMimeType.startsWith("audio/")) intent.putExtra("audio_only", true)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
         if (!useProxy) {

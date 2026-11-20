@@ -1,0 +1,33 @@
+name: Verify media library build
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/verify-media-library.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: adopt
+          java-version: 17
+          cache: gradle
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: Compile release Kotlin sources
+        run: ./gradlew :app:compileStandardReleaseKotlin --stacktrace

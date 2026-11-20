@@ -18,7 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.twotone.PlaylistPlay
 import androidx.compose.material.icons.twotone.History
-import androidx.compose.material.icons.twotone.Home
+import androidx.compose.material.icons.twotone.VideoLibrary
 import androidx.compose.material.icons.twotone.Language
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -41,7 +41,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import app.marlboroadvance.mpvex.presentation.Screen
-import app.marlboroadvance.mpvex.ui.browser.folderlist.FolderListScreen
 import app.marlboroadvance.mpvex.ui.browser.networkstreaming.NetworkStreamingScreen
 import app.marlboroadvance.mpvex.ui.browser.playlist.PlaylistScreen
 import app.marlboroadvance.mpvex.ui.browser.recentlyplayed.RecentlyPlayedScreen
@@ -188,8 +187,8 @@ object MainScreen : Screen {
               )
           ) {
             NavigationBarItem(
-              icon = { Icon(Icons.TwoTone.Home, contentDescription = "Home", modifier = Modifier.size(20.dp)) },
-              label = { Text("Home") },
+              icon = { Icon(Icons.TwoTone.VideoLibrary, contentDescription = "Library", modifier = Modifier.size(20.dp)) },
+              label = { Text("Library") },
               selected = selectedTab == 0,
               onClick = { selectedTab = 0 }
             )
@@ -284,7 +283,7 @@ object MainScreen : Screen {
             LocalNavigationBarHeight provides fabBottomPadding
           ) {
             when (targetTab) {
-              0 -> FolderListScreen.Content()
+              0 -> MediaLibraryScreen.Content()
               1 -> RecentlyPlayedScreen.Content()
               2 -> PlaylistScreen.Content()
               3 -> NetworkStreamingScreen.Content()
