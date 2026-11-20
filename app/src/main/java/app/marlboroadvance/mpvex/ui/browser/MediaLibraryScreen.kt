@@ -4,6 +4,7 @@ import android.content.ContentUris
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -76,11 +77,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.exifinterface.media.ExifInterface
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import app.marlboroadvance.mpvex.presentation.Screen
 import app.marlboroadvance.mpvex.ui.player.PlayerActivity
 import app.marlboroadvance.mpvex.ui.browser.pcloud.PCloudScreen
 import app.marlboroadvance.mpvex.utils.media.MediaUtils
+import app.marlboroadvance.mpvex.utils.media.AlbumArtworkProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -109,6 +112,7 @@ private data class LibraryMedia(
   val year: Int? = null,
   val size: Long = 0L,
   val dateAdded: Long = 0L,
+  val isRawImage: Boolean = false,
 )
 
 @Serializable
@@ -311,7 +315,7 @@ object MediaLibraryScreen : Screen {
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
           ) {
-            items(sortedItems.size, key = { sortedItems[it].id }) { index ->
+              items(sortedItems.size, key = { sortedItems[it].id }) { index ->
               val photo = sortedItems[index]
               PhotoTile(photo, onClick = { selectedPhoto = photo })
             }
@@ -411,7 +415,7 @@ private fun categoryIcon(category: LibraryCategory) = when (category) {
 private suspend fun loadMedia(context: android.content.Context, section: MediaSection): List<LibraryMedia> = try {
   val resolver = context.contentResolver
   val (collection, projection, type) = when (section) {
-    MediaSection.Photos -> Triple(
+      MediaSection.Photos -> Triple(
       MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
       arrayOf(MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME, MediaStore.Images.Media.BUCKET_DISPLAY_NAME, MediaStore.Images.Media.MIME_TYPE, MediaStore.Images.Media.DATE_ADDED, MediaStore.Images.Media.DATA, MediaStore.Images.Media.DATE_TAKEN, MediaStore.Images.Media.SIZE),
       "photo",
@@ -448,6 +452,7 @@ private suspend fun loadMedia(context: android.content.Context, section: MediaSe
             year = year.takeIf { it > 1970 },
             size = cursor.getLong(7),
             dateAdded = cursor.getLong(4),
+            isRawImage = isRawImageName(title),
           )
         }
         "audio" -> {
@@ -484,6 +489,53 @@ private suspend fun loadMedia(context: android.content.Context, section: MediaSe
             dateAdded = cursor.getLong(6),
           )
         }
+      }
+    }
+  }
+  if (type == "photo") {
+    val filesUri = MediaStore.Files.getContentUri("external")
+    val rawExtensions = listOf("cr2", "nef", "nrw", "arw", "dng", "rw2", "orf", "pef", "srw", "raf")
+    val rawSelection = rawExtensions.joinToString(" OR ") { "LOWER(${MediaStore.MediaColumns.DISPLAY_NAME}) LIKE ?" }
+    val rawArgs = rawExtensions.map { "%.$it" }.toTypedArray()
+    val knownPaths = results.mapNotNull { it.path.takeIf(String::isNotBlank) }.toHashSet()
+    resolver.query(
+      filesUri,
+      arrayOf(
+        MediaStore.MediaColumns._ID,
+        MediaStore.MediaColumns.DISPLAY_NAME,
+        MediaStore.MediaColumns.MIME_TYPE,
+        MediaStore.MediaColumns.DATE_ADDED,
+        MediaStore.MediaColumns.DATA,
+        MediaStore.MediaColumns.SIZE,
+      ),
+      rawSelection,
+      rawArgs,
+      "${MediaStore.MediaColumns.DATE_ADDED} DESC",
+    )?.use { cursor ->
+      while (cursor.moveToNext()) {
+        val id = cursor.getLong(0)
+        val filename = cursor.getString(1).orEmpty()
+        val path = cursor.getString(4).orEmpty()
+        if (filename.isBlank() || (path.isNotBlank() && path in knownPaths)) continue
+        val uri = ContentUris.withAppendedId(filesUri, id)
+        val mime = cursor.getString(2).orEmpty().ifBlank { "image/x-raw" }
+        val dateAdded = cursor.getLong(3)
+        val timestamp = dateAdded * 1000L
+        val year = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }.get(java.util.Calendar.YEAR)
+        val folder = path.substringBeforeLast('/', "").substringAfterLast('/').ifBlank { "Other" }
+        results += LibraryMedia(
+          id = id,
+          title = filename.substringBeforeLast('.'),
+          subtitle = folder,
+          uri = uri,
+          mimeType = mime,
+          path = path,
+          year = year.takeIf { it > 1970 },
+          size = cursor.getLong(5),
+          dateAdded = dateAdded,
+          isRawImage = true,
+        )
+        if (path.isNotBlank()) knownPaths += path
       }
     }
   }
@@ -551,12 +603,22 @@ private fun VideoPoster(item: LibraryMedia) {
 @Composable
 private fun MusicRow(item: LibraryMedia, onClick: () -> Unit) {
   val context = LocalContext.current
-  val cover = produceState<Bitmap?>(null, item.albumId) {
+  val cover = produceState<Bitmap?>(null, item.albumId, item.artist, item.album) {
     value = withContext(Dispatchers.IO) {
-      runCatching {
+      val local = runCatching {
         val uri = ContentUris.withAppendedId(MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI, item.albumId)
-        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+        context.contentResolver.openInputStream(uri)?.use { input ->
+          val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+          input.mark(16 * 1024)
+          BitmapFactory.decodeStream(input, null, bounds)
+          val maxDimension = maxOf(bounds.outWidth, bounds.outHeight)
+          val sample = if (maxDimension > 512) (maxDimension / 512).coerceAtLeast(1) else 1
+          context.contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, BitmapFactory.Options().apply { inSampleSize = sample })
+          }
+        }
       }.getOrNull()
+      local ?: AlbumArtworkProvider.findCover(context, item.artist, item.album)
     }
   }.value
   Row(
@@ -580,11 +642,12 @@ private fun MusicRow(item: LibraryMedia, onClick: () -> Unit) {
 private fun PhotoTile(item: LibraryMedia, onClick: () -> Unit) {
   val context = LocalContext.current
   val bitmap = produceState<Bitmap?>(null, item.uri) {
-    value = withContext(Dispatchers.IO) { decodePreview(context, item.uri, 640) }
+    value = withContext(Dispatchers.IO) { decodePreview(context, item.uri, 640, item.isRawImage) }
   }.value
   Card(onClick = onClick, shape = RoundedCornerShape(12.dp)) {
     Box(Modifier.fillMaxWidth().aspectRatio(1f).background(MaterialTheme.colorScheme.surfaceContainer)) {
       bitmap?.let { Image(it.asImageBitmap(), contentDescription = item.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+        ?: Icon(Icons.TwoTone.Image, contentDescription = "No preview", modifier = Modifier.align(Alignment.Center).size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
   }
 }
@@ -593,7 +656,7 @@ private fun PhotoTile(item: LibraryMedia, onClick: () -> Unit) {
 private fun PhotoViewer(photo: LibraryMedia, onDismiss: () -> Unit) {
   val context = LocalContext.current
   val bitmap = produceState<Bitmap?>(null, photo.uri) {
-    value = withContext(Dispatchers.IO) { decodePreview(context, photo.uri, 2400) }
+    value = withContext(Dispatchers.IO) { decodePreview(context, photo.uri, 2400, photo.isRawImage) }
   }.value
   AlertDialog(
     onDismissRequest = onDismiss,
@@ -601,13 +664,29 @@ private fun PhotoViewer(photo: LibraryMedia, onDismiss: () -> Unit) {
     title = { Text(photo.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
     text = {
       Box(Modifier.fillMaxWidth().height(480.dp), contentAlignment = Alignment.Center) {
-        bitmap?.let { Image(it.asImageBitmap(), contentDescription = photo.title, Modifier.fillMaxSize(), contentScale = ContentScale.Fit) }
+        if (bitmap != null) Image(bitmap.asImageBitmap(), contentDescription = photo.title, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+        else if (photo.isRawImage) Text("No embedded RAW preview found in this file.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else androidx.compose.material3.CircularProgressIndicator()
       }
     },
   )
 }
 
-private fun decodePreview(context: android.content.Context, uri: Uri, maxDimension: Int): Bitmap? = runCatching {
+private fun decodePreview(context: android.content.Context, uri: Uri, maxDimension: Int, isRawImage: Boolean = false): Bitmap? = runCatching {
+  if (isRawImage) {
+    val thumbnail = context.contentResolver.openInputStream(uri)?.use { input ->
+      ExifInterface(input).thumbnailBitmap
+    } ?: return@runCatching null
+    val rotation = context.contentResolver.openInputStream(uri)?.use { input ->
+      ExifInterface(input).rotationDegrees
+    } ?: 0
+    val matrix = Matrix().apply {
+      if (rotation != 0) postRotate(rotation.toFloat())
+    }
+    val oriented = if (rotation == 0) thumbnail else Bitmap.createBitmap(thumbnail, 0, 0, thumbnail.width, thumbnail.height, matrix, true)
+    val scale = minOf(1f, maxDimension.toFloat() / maxOf(oriented.width, oriented.height))
+    if (scale >= 1f) oriented else Bitmap.createScaledBitmap(oriented, (oriented.width * scale).toInt().coerceAtLeast(1), (oriented.height * scale).toInt().coerceAtLeast(1), true)
+  } else {
   val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
   context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
   if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@runCatching null
@@ -615,7 +694,11 @@ private fun decodePreview(context: android.content.Context, uri: Uri, maxDimensi
   while (bounds.outWidth / sample > maxDimension || bounds.outHeight / sample > maxDimension) sample *= 2
   val options = BitmapFactory.Options().apply { inSampleSize = sample }
   context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+  }
 }.getOrNull()
+
+private fun isRawImageName(name: String): Boolean =
+  name.substringAfterLast('.', "").lowercase(Locale.ROOT) in setOf("cr2", "nef", "nrw", "arw", "dng", "rw2", "orf", "pef", "srw", "raf")
 
 private fun playAudioQueue(items: List<LibraryMedia>, index: Int, context: android.content.Context) {
   val intent = Intent(Intent.ACTION_VIEW, items[index].uri).apply {
