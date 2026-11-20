@@ -22,8 +22,8 @@ android {
     applicationId = "app.marlboroadvance.mpvex"
     minSdk = 26
     targetSdk = 36
-    versionCode = 131
-    versionName = "1.2.11"
+    versionCode = 132
+    versionName = "1.2.12"
 
     vectorDrawables {
       useSupportLibrary = true
@@ -55,10 +55,6 @@ android {
       versionNameSuffix = "-fdroid"
       buildConfigField("boolean", "ENABLE_UPDATE_FEATURE", "false")
       buildConfigField("boolean", "SCOPED_STORAGE_ONLY", "false")
-
-      ndk {
-        abiFilters += "arm64-v8a"
-      }
     }
   }
 
