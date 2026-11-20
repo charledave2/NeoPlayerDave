@@ -39,6 +39,8 @@ import androidx.compose.material.icons.twotone.Image
 import androidx.compose.material.icons.twotone.MusicNote
 import androidx.compose.material.icons.twotone.Search
 import androidx.compose.material.icons.twotone.VideoLibrary
+import androidx.compose.material.icons.twotone.SortByAlpha
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -68,6 +70,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -229,7 +233,9 @@ object MediaLibraryScreen : Screen {
           title = { Text(section.title, fontWeight = FontWeight.SemiBold) },
           actions = {
             Box {
-              TextButton(onClick = { showSortMenu = true }) { Text("Sort: ${listOf("Name", "Newest", "Largest")[sortIndex]}") }
+              IconButton(onClick = { showSortMenu = true }) {
+                Icon(Icons.TwoTone.SortByAlpha, contentDescription = "Sort by ${listOf("name", "newest", "largest")[sortIndex]}")
+              }
               DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
                 listOf("Name", "Newest", "Largest").forEachIndexed { index, label ->
                   DropdownMenuItem(
@@ -239,7 +245,9 @@ object MediaLibraryScreen : Screen {
                 }
               }
             }
-            TextButton(onClick = { refreshKey++ }) { Text("Refresh") }
+            IconButton(onClick = { refreshKey++ }) {
+              Icon(Icons.Filled.Refresh, contentDescription = "Refresh library")
+            }
             IconButton(onClick = { showSearch = !showSearch; if (!showSearch) query = "" }) {
               Icon(Icons.TwoTone.Search, contentDescription = "Search media")
             }
@@ -249,9 +257,20 @@ object MediaLibraryScreen : Screen {
     ) { padding ->
       Column(Modifier.fillMaxSize().padding(padding)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          FilterChip(selected = sourceIndex == 0, onClick = { sourceIndex = 0; selectedGroup = null }, label = { Text("Local storage") })
-          FilterChip(selected = sourceIndex == 1, onClick = { sourceIndex = 1; selectedGroup = null }, label = { Text("pCloud") })
+          FilterChip(
+            selected = sourceIndex == 0,
+            onClick = { sourceIndex = 0; selectedGroup = null },
+            leadingIcon = { Icon(Icons.TwoTone.VideoLibrary, contentDescription = null, modifier = Modifier.size(18.dp)) },
+            label = { Text("On this device") },
+          )
+          FilterChip(
+            selected = sourceIndex == 1,
+            onClick = { sourceIndex = 1; selectedGroup = null },
+            leadingIcon = { Icon(Icons.TwoTone.Cloud, contentDescription = null, modifier = Modifier.size(18.dp)) },
+            label = { Text("pCloud") },
+          )
         }
+        MediaSectionHeader(section, sourceIndex)
         ScrollableTabRow(selectedTabIndex = safeCategoryIndex, edgePadding = 16.dp) {
           categories.forEachIndexed { index, item ->
             Tab(
@@ -297,6 +316,18 @@ object MediaLibraryScreen : Screen {
               Spacer(Modifier.height(12.dp))
               Text("No ${category.title.lowercase()} found", style = MaterialTheme.typography.titleMedium)
               Text("Media on this device will appear here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+          }
+          section == MediaSection.Videos -> LazyVerticalGrid(
+            modifier = Modifier.weight(1f),
+            columns = GridCells.Adaptive(158.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+          ) {
+            items(sortedItems.size, key = { sortedItems[it].id }) { index ->
+              val video = sortedItems[index]
+              VideoPosterTile(video) { MediaUtils.playFile(video.uri, context, "media_library") }
             }
           }
           section == MediaSection.Photos && selectedGroup == null -> LazyColumn(
@@ -359,6 +390,41 @@ private fun categoriesFor(section: MediaSection): List<LibraryCategory> = when (
   MediaSection.Videos -> listOf(LibraryCategory.Movies, LibraryCategory.Shows, LibraryCategory.OtherVideos, LibraryCategory.VideoFolders)
   MediaSection.Music -> listOf(LibraryCategory.Songs, LibraryCategory.Albums, LibraryCategory.Artists, LibraryCategory.Genres, LibraryCategory.Playlists)
   MediaSection.Photos -> listOf(LibraryCategory.PhotoAlbums, LibraryCategory.PhotoFolders, LibraryCategory.PhotoYears)
+}
+
+@Composable
+private fun MediaSectionHeader(section: MediaSection, sourceIndex: Int) {
+  val (icon, message) = when (section) {
+    MediaSection.Videos -> Icons.TwoTone.VideoLibrary to "Movies, series and clips in one place"
+    MediaSection.Music -> Icons.TwoTone.MusicNote to "Albums, artists and every track"
+    MediaSection.Photos -> Icons.TwoTone.Image to "Your photos, grouped and ready to revisit"
+  }
+  Card(
+    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+    shape = RoundedCornerShape(22.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+  ) {
+    Row(
+      modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+      Box(
+        Modifier.size(48.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(16.dp)),
+        contentAlignment = Alignment.Center,
+      ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(25.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+      }
+      Column(Modifier.weight(1f)) {
+        Text(message, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text(
+          if (sourceIndex == 0) "Stored on this device" else "Synced from your pCloud account",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+    }
+  }
 }
 
 private fun isOtherVideoPath(path: String): Boolean {
@@ -579,6 +645,48 @@ private fun MediaRow(item: LibraryMedia, category: LibraryCategory, onClick: () 
         Text(item.subtitle.ifBlank { item.mimeType }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
       }
       if (item.duration > 0) Text(formatDuration(item.duration), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+  }
+}
+
+@Composable
+private fun VideoPosterTile(item: LibraryMedia, onClick: () -> Unit) {
+  val context = LocalContext.current
+  val bitmap = produceState<Bitmap?>(null, item.uri) {
+    value = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      withContext(Dispatchers.IO) {
+        runCatching { context.contentResolver.loadThumbnail(item.uri, Size(360, 520), null) }.getOrNull()
+      }
+    } else null
+  }.value
+  Card(onClick = onClick, shape = RoundedCornerShape(20.dp)) {
+    Box(
+      Modifier.fillMaxWidth().aspectRatio(0.72f)
+        .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.secondaryContainer))),
+    ) {
+      bitmap?.let {
+        Image(it.asImageBitmap(), contentDescription = item.title, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+      } ?: Icon(
+        Icons.TwoTone.VideoLibrary,
+        contentDescription = null,
+        modifier = Modifier.align(Alignment.Center).size(48.dp),
+        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+      )
+      Box(
+        Modifier.fillMaxSize().background(
+          Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.18f), Color.Black.copy(alpha = 0.86f))),
+        ),
+      )
+      Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 12.dp, vertical = 14.dp)) {
+        Text(item.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = Color.White)
+        Text(
+          item.subtitle.ifBlank { item.mimeType.substringAfter('/') },
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+          style = MaterialTheme.typography.labelSmall,
+          color = Color.White.copy(alpha = 0.78f),
+        )
+      }
     }
   }
 }
