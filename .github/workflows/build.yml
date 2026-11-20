@@ -42,10 +42,10 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build standard release ARM64 APK
-        run: ./gradlew assembleStandardRelease -Pandroid.injected.build.abi=arm64-v8a --max-workers=1
+      - name: Build standard release APKs
+        run: ./gradlew assembleStandardRelease --max-workers=2
 
-      - name: Sign and verify release APK
+      - name: Sign and verify final aligned ARM64 APK
         env:
           SIGNING_KEYSTORE: ${{ secrets.SIGNING_KEYSTORE }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
@@ -59,19 +59,21 @@ jobs:
           trap 'rm -f "$KEYSTORE_FILE"' EXIT
           printf '%s' "$SIGNING_KEYSTORE" | base64 --decode > "$KEYSTORE_FILE"
 
-          APK_PATH="$(find app/build -type f -name 'app-standard-arm64-v8a-release-unsigned.apk' -print -quit)"
-          if [[ -z "$APK_PATH" ]]; then
-            echo "::error::Gradle did not produce the expected standard ARM64 release APK."
-            find app/build -type f -name '*standard*release*.apk' -print
+          APK_PATH="app/build/outputs/apk/standard/release/app-standard-arm64-v8a-release-unsigned.apk"
+          if [[ ! -f "$APK_PATH" ]]; then
+            echo "::error::The final ARM64 release APK was not found."
+            find app/build/outputs/apk/standard/release -maxdepth 1 -type f -name '*.apk' -print
             exit 1
           fi
 
+          ZIPALIGN="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name zipalign -print | sort -V | tail -n 1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n 1)"
-          if [[ -z "$APKSIGNER" || ! -x "$APKSIGNER" ]]; then
-            echo "::error::Android apksigner was not found in the installed build tools."
+          if [[ -z "$ZIPALIGN" || ! -x "$ZIPALIGN" || -z "$APKSIGNER" || ! -x "$APKSIGNER" ]]; then
+            echo "::error::Android zipalign or apksigner was not found in the installed build tools."
             exit 1
           fi
 
+          "$ZIPALIGN" -c -v 4 "$APK_PATH"
           "$APKSIGNER" sign \
             --ks "$KEYSTORE_FILE" \
             --ks-key-alias "$SIGNING_KEY_ALIAS" \
