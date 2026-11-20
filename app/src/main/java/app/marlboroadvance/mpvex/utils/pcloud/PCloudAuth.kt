@@ -47,6 +47,7 @@ data class PCloudEntry(
   val size: Long,
   val path: String = name,
   val parentFolderId: Long? = null,
+  val modifiedAt: Long = 0L,
 )
 
 object PCloudAuth {
@@ -273,6 +274,7 @@ object PCloudApi {
                 size = item.optLong("size", 0L),
                 path = item.optString("path", item.optString("name", "Untitled")),
                 parentFolderId = folderId,
+                modifiedAt = item.optLong("modified", item.optLong("mtime", 0L)),
               ),
             )
           }
@@ -317,6 +319,7 @@ object PCloudApi {
               size = item.optLong("size", 0L),
               path = path,
               parentFolderId = parentFolderId,
+              modifiedAt = item.optLong("modified", item.optLong("mtime", 0L)),
             )
           }
         }
