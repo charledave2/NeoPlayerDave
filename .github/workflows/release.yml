@@ -11,7 +11,7 @@ on:
 
 jobs:
   release-for-github:
-    name: "Build and publish one ARM64 APK"
+    name: "Build and publish Pcloud Media Manager APK"
     runs-on: ubuntu-latest
 
     steps:
@@ -102,11 +102,11 @@ jobs:
           "$APKSIGNER" verify "$SIGNED_APK"
           rm "$UNSIGNED_APK"
 
-      - name: Copy release APK and calculate checksum
+      - name: Copy Pcloud Media Manager APK and calculate checksum
         run: |
           set -euo pipefail
           APK="app/build/outputs/apk/standard/release/app-standard-arm64-v8a-release.apk"
-          RELEASE_APK="mpvEx-arm64-v8a-${VERSION_TAG}.apk"
+          RELEASE_APK="Pcloud-Media-Manager-arm64-v8a-${VERSION_TAG}.apk"
           cp "$APK" "$RELEASE_APK"
           CHECKSUM=$(sha256sum "$RELEASE_APK" | awk '{ print $1 }')
           echo "apk_sha256=$CHECKSUM" >> "$GITHUB_ENV"
@@ -116,15 +116,15 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION_TAG }}
-          name: NeoPlayerDave ${{ env.VERSION_TAG }}
+          name: Pcloud Media Manager ${{ env.VERSION_TAG }}
           body: |
             ### What's new
             - pCloud OAuth sign-in and direct cloud browsing/streaming (requires PCLOUD_CLIENT_ID Actions secret).
             - Stream Link is now hidden until opened from Network.
-            - Personal ARM64 release: one signed APK.
+            - Pcloud Media Manager personal ARM64 release: one signed APK.
 
             **SHA-256:** ${{ env.apk_sha256 }}
-          files: mpvEx-arm64-v8a-${{ env.VERSION_TAG }}.apk
+          files: Pcloud-Media-Manager-arm64-v8a-${{ env.VERSION_TAG }}.apk
           draft: false
           prerelease: false
         env:
