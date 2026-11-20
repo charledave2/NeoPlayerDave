@@ -51,7 +51,11 @@ import me.zhanghai.compose.preference.ProvidePreferenceLocals
 object PreferencesScreen : Screen {
   @OptIn(ExperimentalMaterial3Api::class)
   @Composable
-  override fun Content() {
+  override fun Content() = Content(asRoot = false)
+
+  @OptIn(ExperimentalMaterial3Api::class)
+  @Composable
+  fun Content(asRoot: Boolean) {
     val backstack = LocalBackStack.current
     Scaffold(
       topBar = {
@@ -65,12 +69,14 @@ object PreferencesScreen : Screen {
             )
           },
           navigationIcon = {
-            IconButton(onClick = backstack::removeLastOrNull) {
-              Icon(
-                Icons.AutoMirrored.Outlined.ArrowBack, 
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.secondary,
-              )
+            if (!asRoot) {
+              IconButton(onClick = backstack::removeLastOrNull) {
+                Icon(
+                  Icons.AutoMirrored.Outlined.ArrowBack,
+                  contentDescription = "Back",
+                  tint = MaterialTheme.colorScheme.secondary,
+                )
+              }
             }
           },
         )
