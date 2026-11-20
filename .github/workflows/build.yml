@@ -33,12 +33,22 @@ jobs:
       - name: Build arm64 debug test APK
         run: ./gradlew assembleStandardDebug -Pandroid.injected.build.abi=arm64-v8a --max-workers=1
 
-      - name: Show debug APK output
-        run: find app/build/outputs -type f -name '*.apk' -print
+      - name: Collect debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          find app/build -type f -name '*standard*debug*.apk' -print
+          APK_PATH="$(find app/build -type f -name '*standard*debug*.apk' -print -quit)"
+          if [[ -z "$APK_PATH" ]]; then
+            echo "::error::Gradle completed but no standard debug APK was found."
+            find app/build -type f -name '*.apk' -print
+            exit 1
+          fi
+          cp "$APK_PATH" NeoPlayerDave-arm64-debug-test.apk
 
       - name: Upload installable arm64 debug test APK
         uses: actions/upload-artifact@v4
         with:
           name: app-standard-arm64-v8a-debug-test-${{ env.SHORT_SHA }}
-          path: app/build/outputs/**/*.apk
+          path: NeoPlayerDave-arm64-debug-test.apk
           if-no-files-found: error
