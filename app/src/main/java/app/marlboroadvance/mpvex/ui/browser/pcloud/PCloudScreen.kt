@@ -309,19 +309,31 @@ object PCloudScreen : Screen {
               )
             }
             if (embedded) {
-              TextButton(
-                onClick = {
-                  PCloudAuth.signOut(context)
-                  connected = false
-                  entries = emptyList()
-                  libraryEntries = emptyList()
-                  libraryRefreshLoaded = -1
-                  folderStack = emptyList()
-                  currentFolderId = 0L
-                  currentFolderName = "pCloud"
-                  error = null
-                },
-              ) { Text("Disconnect pCloud") }
+              Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+              ) {
+                Icon(Icons.TwoTone.Cloud, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                Text(
+                  "Connected to pCloud",
+                  modifier = Modifier.padding(start = 8.dp).weight(1f),
+                  style = MaterialTheme.typography.labelLarge,
+                  color = MaterialTheme.colorScheme.primary,
+                )
+                TextButton(
+                  onClick = {
+                    PCloudAuth.signOut(context)
+                    connected = false
+                    entries = emptyList()
+                    libraryEntries = emptyList()
+                    libraryRefreshLoaded = -1
+                    folderStack = emptyList()
+                    currentFolderId = 0L
+                    currentFolderName = "pCloud"
+                    error = null
+                  },
+                ) { Text("Disconnect") }
+              }
             }
             if (mediaFilter == 4) {
               Text(
@@ -367,11 +379,30 @@ object PCloudScreen : Screen {
           }
           error?.let { message ->
             item {
-              Text(
-                text = message,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(vertical = 8.dp),
-              )
+              Card(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+              ) {
+                Row(
+                  modifier = Modifier.fillMaxWidth().padding(18.dp),
+                  horizontalArrangement = Arrangement.spacedBy(14.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                ) {
+                  Icon(Icons.TwoTone.Cloud, contentDescription = null, modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.error)
+                  Column(Modifier.weight(1f)) {
+                    Text("Couldn’t load your pCloud library", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(4.dp))
+                    Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = { refreshCounter++ }) {
+                      Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                      Spacer(Modifier.size(8.dp))
+                      Text("Try again")
+                    }
+                  }
+                }
+              }
             }
           }
           val sourceEntries = if (mediaFilter == 4) entries else libraryEntries
