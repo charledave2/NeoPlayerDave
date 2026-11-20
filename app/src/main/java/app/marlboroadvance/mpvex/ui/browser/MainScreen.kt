@@ -19,11 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.twotone.PlaylistPlay
 import androidx.compose.material.icons.twotone.History
 import androidx.compose.material.icons.twotone.Home
-import androidx.compose.material.icons.twotone.Cloud
 import androidx.compose.material.icons.twotone.Language
 import androidx.compose.material3.Icon
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FabPosition
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -166,19 +163,6 @@ object MainScreen : Screen {
     // Scaffold with bottom navigation bar
     Scaffold(
       modifier = Modifier.fillMaxSize(),
-      floatingActionButton = {
-        FloatingActionButton(
-          onClick = { selectedTab = 3 },
-          containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-          contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary
-        ) {
-          Icon(
-            imageVector = Icons.TwoTone.Cloud,
-            contentDescription = "Open cloud media"
-          )
-        }
-      },
-      floatingActionButtonPosition = FabPosition.Center,
       bottomBar = {
         // Animated bottom navigation bar with slide animations
         AnimatedVisibility(
