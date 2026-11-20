@@ -81,10 +81,33 @@ object PCloudScreen : Screen {
   override fun Content() = ContentInternal(embedded = false, initialFilter = 0)
 
   @Composable
-  fun ContentFor(filter: Int) = ContentInternal(embedded = true, initialFilter = filter)
+  fun ContentFor(
+    filter: Int,
+    sectionTitle: String = "",
+    categoryTitle: String = "",
+    searchQuery: String = "",
+    refreshSignal: Int = 0,
+    sortMode: Int = 0,
+  ) = ContentInternal(
+    embedded = true,
+    initialFilter = filter,
+    sectionTitle = sectionTitle,
+    categoryTitle = categoryTitle,
+    externalSearchQuery = searchQuery,
+    externalRefreshSignal = refreshSignal,
+    externalSortMode = sortMode,
+  )
 
   @Composable
-  private fun ContentInternal(embedded: Boolean, initialFilter: Int) {
+  private fun ContentInternal(
+    embedded: Boolean,
+    initialFilter: Int,
+    sectionTitle: String = "",
+    categoryTitle: String = "",
+    externalSearchQuery: String = "",
+    externalRefreshSignal: Int = 0,
+    externalSortMode: Int = 0,
+  ) {
     val backstack = LocalBackStack.current
     val context = androidx.compose.ui.platform.LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -105,6 +128,9 @@ object PCloudScreen : Screen {
     var libraryEntries by remember { mutableStateOf(emptyList<PCloudEntry>()) }
     var query by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
+    var selectedCloudGroup by rememberSaveable(embedded, initialFilter, sectionTitle, categoryTitle) { mutableStateOf<String?>(null) }
+    val effectiveRefreshSignal = refreshCounter * 1_000_000 + externalRefreshSignal
+    val effectiveSearchQuery = if (embedded) externalSearchQuery else query
 
     fun goBack() {
       if (mediaFilter == 4 && folderStack.isNotEmpty()) {
@@ -132,7 +158,7 @@ object PCloudScreen : Screen {
       onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LaunchedEffect(connected, currentFolderId, refreshCounter, mediaFilter) {
+    LaunchedEffect(connected, currentFolderId, refreshCounter, externalRefreshSignal, mediaFilter) {
       if (!connected) {
         entries = emptyList()
         libraryEntries = emptyList()
@@ -150,12 +176,12 @@ object PCloudScreen : Screen {
         } finally {
           isLoading = false
         }
-      } else if (libraryRefreshLoaded != refreshCounter) {
+      } else if (libraryRefreshLoaded != effectiveRefreshSignal) {
         isLoading = true
         error = null
         try {
           libraryEntries = PCloudApi.listMediaLibrary(context)
-          libraryRefreshLoaded = refreshCounter
+          libraryRefreshLoaded = effectiveRefreshSignal
         } catch (exception: Exception) {
           error = exception.message ?: "Could not scan the pCloud library."
           connected = PCloudAuth.isConnected(context)
@@ -305,7 +331,7 @@ object PCloudScreen : Screen {
               )
             } else {
               Text(
-                text = "Media from across your pCloud folders, grouped by type.",
+                text = if (embedded) "$sectionTitle · $categoryTitle in pCloud" else "Media from across your pCloud folders, grouped by type.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
@@ -317,7 +343,7 @@ object PCloudScreen : Screen {
                 }
               }
             }
-            if (showSearch) {
+            if (showSearch && !embedded) {
               androidx.compose.material3.TextField(
                 value = query,
                 onValueChange = { query = it },
@@ -349,7 +375,7 @@ object PCloudScreen : Screen {
             }
           }
           val sourceEntries = if (mediaFilter == 4) entries else libraryEntries
-          val filteredEntries = sourceEntries.filter { entry ->
+          val typedEntries = sourceEntries.filter { entry ->
             val matchesType = if (mediaFilter == 4) true else when (mediaFilter) {
               0 -> mediaKind(entry.name) != "other"
               1 -> mediaKind(entry.name) == "video"
@@ -357,20 +383,79 @@ object PCloudScreen : Screen {
               3 -> mediaKind(entry.name) == "audio"
               else -> false
             }
-            val matchesSearch = query.isBlank() || entry.name.contains(query, true) || entry.path.contains(query, true)
-            matchesType && (mediaFilter == 4 || !entry.isFolder) && matchesSearch
+            val matchesSearch = effectiveSearchQuery.isBlank() || entry.name.contains(effectiveSearchQuery, true) || entry.path.contains(effectiveSearchQuery, true)
+            val matchesCategory = if (!embedded || mediaFilter == 4 || sectionTitle != "Videos") true else when (categoryTitle) {
+              "Movies" -> !isShowEntry(entry) && !isOtherVideoEntry(entry)
+              "TV Shows" -> isShowEntry(entry)
+              "Other Videos" -> isOtherVideoEntry(entry)
+              else -> true
+            }
+            matchesType && (mediaFilter == 4 || !entry.isFolder) && matchesSearch && matchesCategory
+          }.let { matches ->
+            when (externalSortMode) {
+              1 -> matches.sortedByDescending { it.modifiedAt }
+              2 -> matches.sortedByDescending { it.size }
+              else -> matches.sortedBy { it.name.lowercase() }
+            }
           }
-          if (!isLoading && error == null && filteredEntries.isEmpty()) {
+          val supportsGrouping = embedded && mediaFilter != 4 && (
+            (sectionTitle == "Music" && categoryTitle in setOf("Albums", "Artists", "Genres")) ||
+              (sectionTitle == "Photos" && categoryTitle in setOf("Albums", "Folders", "Years"))
+            )
+          val genreFoldersPresent = sectionTitle == "Music" && categoryTitle == "Genres" && typedEntries.any { entry ->
+            val folders = entry.path.split('/').dropLast(1)
+            folders.indices.any { index ->
+              (folders[index].equals("genre", true) || folders[index].equals("genres", true)) && index + 1 < folders.size
+            }
+          }
+          val categoryEntries = if (
+            (embedded && sectionTitle == "Music" && categoryTitle == "Genres" && !genreFoldersPresent) ||
+            (embedded && sectionTitle == "Music" && categoryTitle == "Playlists")
+          ) emptyList() else typedEntries
+          val filteredEntries = categoryEntries.filter { entry ->
+            selectedCloudGroup == null || cloudGroupName(entry, sectionTitle, categoryTitle) == selectedCloudGroup
+          }
+          val groupedEntries = if (supportsGrouping && selectedCloudGroup == null) {
+            val groups = categoryEntries.groupBy { cloudGroupName(it, sectionTitle, categoryTitle) }.toList()
+            when (externalSortMode) {
+              1 -> groups.sortedByDescending { (_, members) -> members.maxOfOrNull { it.modifiedAt } ?: 0L }
+              2 -> groups.sortedByDescending { (_, members) -> members.sumOf { it.size } }
+              else -> groups.sortedBy { it.first.lowercase() }
+            }
+          } else emptyList()
+          val unsupportedCategoryMessage = when {
+            embedded && sectionTitle == "Music" && categoryTitle == "Genres" && !genreFoldersPresent ->
+              "pCloud’s file listing does not include audio genre tags. Add genre folders to browse tracks by folder, or use Local storage for device genre tags."
+            embedded && sectionTitle == "Music" && categoryTitle == "Playlists" ->
+              "Cloud playlist files are not indexed yet. Local playlists are available from Local storage."
+            else -> null
+          }
+          if (selectedCloudGroup != null) {
+            item { TextButton(onClick = { selectedCloudGroup = null }) { Text("← $categoryTitle · $selectedCloudGroup") } }
+          }
+          if (unsupportedCategoryMessage != null) {
+            item { Text(unsupportedCategoryMessage, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+          }
+          if (!isLoading && error == null && filteredEntries.isEmpty() && unsupportedCategoryMessage == null) {
             item {
               Text(
-                text = if (query.isNotBlank()) "No matching pCloud media." else if (mediaFilter == 4) "This folder is empty." else "No media found in your pCloud account.",
+                text = when {
+                  unsupportedCategoryMessage != null -> ""
+                  effectiveSearchQuery.isNotBlank() -> "No matching pCloud media."
+                  mediaFilter == 4 -> "This folder is empty."
+                  else -> "No media found in your pCloud account."
+                },
                 modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyLarge,
               )
             }
           }
-          items(filteredEntries, key = { (it.folderId ?: it.fileId).toString() }) { entry ->
+          if (supportsGrouping && selectedCloudGroup == null) {
+            items(groupedEntries, key = { it.first }) { (name, members) ->
+              PCloudGroupCard(name, members.size) { selectedCloudGroup = name }
+            }
+          } else items(filteredEntries, key = { (it.folderId ?: it.fileId).toString() }) { entry ->
             PCloudEntryCard(
               entry = entry,
               onClick = {
@@ -403,6 +488,52 @@ object PCloudScreen : Screen {
     }
     selectedPhoto?.let { (name, url) ->
       PCloudPhotoDialog(name, url) { selectedPhoto = null }
+    }
+  }
+}
+
+private fun isShowEntry(entry: PCloudEntry): Boolean {
+  val episodePattern = Regex("(?i).*(s\\d{1,2}e\\d{1,2}|\\d{1,2}x\\d{1,2}).*")
+  return episodePattern.matches(entry.name) || episodePattern.matches(entry.path) ||
+    listOf("/tv/", "/series/", "/shows/", "/seasons/").any { entry.path.contains(it, true) }
+}
+
+private fun isOtherVideoEntry(entry: PCloudEntry): Boolean {
+  val path = entry.path.replace('\\', '/').lowercase()
+  return listOf("/dcim/", "/camera/", "/screenshots/", "/screen recordings/", "/screenrecord/", "/downloads/", "/whatsapp video/", "/telegram/", "/recordings/").any(path::contains)
+}
+
+private fun cloudGroupName(entry: PCloudEntry, section: String, category: String): String {
+  val parts = entry.path.replace('\\', '/').split('/').filter(String::isNotBlank)
+  val folders = parts.dropLast(1)
+  if (section == "Photos" && category == "Years") {
+    return Regex("(?:19|20)\\d{2}").find(entry.path)?.value ?: "Unknown year"
+  }
+  if (section == "Music" && category == "Genres") {
+    val genreIndex = folders.indexOfLast { it.equals("genre", true) || it.equals("genres", true) }
+    return folders.getOrNull(genreIndex + 1) ?: "Unsorted"
+  }
+  return when {
+    section == "Music" && category == "Artists" -> folders.getOrNull(folders.lastIndex - 1) ?: folders.lastOrNull() ?: "Unsorted"
+    else -> folders.lastOrNull() ?: "Unsorted"
+  }
+}
+
+@Composable
+private fun PCloudGroupCard(name: String, count: Int, onClick: () -> Unit) {
+  Card(
+    modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+    shape = RoundedCornerShape(18.dp),
+  ) {
+    Row(
+      modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+      Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+      Text(name, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+      Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
   }
 }
