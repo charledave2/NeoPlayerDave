@@ -41,6 +41,7 @@ import androidx.compose.material.icons.twotone.VideoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -77,15 +78,18 @@ import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import app.marlboroadvance.mpvex.presentation.Screen
 import app.marlboroadvance.mpvex.ui.player.PlayerActivity
 import app.marlboroadvance.mpvex.ui.browser.pcloud.PCloudScreen
-import app.marlboroadvance.mpvex.ui.utils.LocalBackStack
 import app.marlboroadvance.mpvex.utils.media.MediaUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import java.util.Locale
 
+enum class MediaSection(val title: String) { Videos("Videos"), Music("Music"), Photos("Photos") }
+
 private enum class LibraryCategory(val title: String) {
-  Movies("Movies"), Shows("TV Shows"), Photos("Photos"), Music("Music"), Folders("Folders"),
+  Movies("Movies"), Shows("TV Shows"), OtherVideos("Other Videos"), VideoFolders("Folders"),
+  Songs("Songs"), Albums("Albums"), Artists("Artists"), Genres("Genres"), Playlists("Playlists"),
+  PhotoAlbums("Albums"), PhotoFolders("Folders"), PhotoYears("Years"),
 }
 
 private data class LibraryMedia(
@@ -97,24 +101,35 @@ private data class LibraryMedia(
   val duration: Long = 0L,
   val path: String = "",
   val albumId: Long = -1L,
+  val artist: String = "",
+  val album: String = "",
+  val genres: Set<String> = emptySet(),
+  val year: Int? = null,
 )
 
 @Serializable
 object MediaLibraryScreen : Screen {
   @OptIn(com.google.accompanist.permissions.ExperimentalPermissionsApi::class)
   @Composable
-  override fun Content() {
+  override fun Content() = Content(MediaSection.Videos)
+
+  @Composable
+  fun Content(section: MediaSection) {
     val context = LocalContext.current
-    val backstack = LocalBackStack.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    var categoryIndex by rememberSaveable { mutableIntStateOf(0) }
+    val categories = categoriesFor(section)
+    var categoryIndex by rememberSaveable(section) { mutableIntStateOf(0) }
+    val safeCategoryIndex = categoryIndex.coerceIn(categories.indices)
+    val category = categories[safeCategoryIndex]
+    var sourceIndex by rememberSaveable(section) { mutableIntStateOf(0) }
     var refreshKey by remember { mutableIntStateOf(0) }
     var query by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
+    var selectedGroup by rememberSaveable(section) { mutableStateOf<String?>(null) }
     var selectedPhoto by remember { mutableStateOf<LibraryMedia?>(null) }
     var media by remember { mutableStateOf(emptyList<LibraryMedia>()) }
     var loading by remember { mutableStateOf(true) }
-    val category = LibraryCategory.entries[categoryIndex]
+
     val mediaPermissions = remember {
       if (Build.VERSION.SDK_INT >= 34) listOf(
         Manifest.permission.READ_MEDIA_VIDEO,
@@ -131,13 +146,13 @@ object MediaLibraryScreen : Screen {
     val hasAllFilesAccess = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()
     val categoryPermission = when {
       Build.VERSION.SDK_INT < 33 -> Manifest.permission.READ_EXTERNAL_STORAGE
-      category == LibraryCategory.Photos -> Manifest.permission.READ_MEDIA_IMAGES
-      category == LibraryCategory.Music -> Manifest.permission.READ_MEDIA_AUDIO
+      section == MediaSection.Photos -> Manifest.permission.READ_MEDIA_IMAGES
+      section == MediaSection.Music -> Manifest.permission.READ_MEDIA_AUDIO
       else -> Manifest.permission.READ_MEDIA_VIDEO
     }
     val hasMediaAccess = hasAllFilesAccess ||
       context.checkSelfPermission(categoryPermission) == PackageManager.PERMISSION_GRANTED ||
-      (category == LibraryCategory.Photos && Build.VERSION.SDK_INT >= 34 &&
+      (section == MediaSection.Photos && Build.VERSION.SDK_INT >= 34 &&
         context.checkSelfPermission(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED)
 
     DisposableEffect(lifecycleOwner) {
@@ -148,34 +163,44 @@ object MediaLibraryScreen : Screen {
       onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LaunchedEffect(category, refreshKey) {
-      if (category == LibraryCategory.Folders) return@LaunchedEffect
+    LaunchedEffect(section, sourceIndex, refreshKey, category) {
+      if (sourceIndex != 0 || category == LibraryCategory.VideoFolders || category == LibraryCategory.Playlists) return@LaunchedEffect
       loading = true
-      media = withContext(Dispatchers.IO) { loadMedia(context, category) }
+      media = withContext(Dispatchers.IO) { loadMedia(context, section) }
       loading = false
     }
 
-    val filtered = remember(media, query, category) {
+    val filtered = remember(media, query, category, selectedGroup) {
       val tvEpisode = Regex("(?i).*(s\\d{1,2}e\\d{1,2}|\\d{1,2}x\\d{1,2}).*")
       media.filter { item ->
-        val isShow = tvEpisode.matches(item.title) || tvEpisode.matches(item.path)
+        val isShow = tvEpisode.matches(item.title) || tvEpisode.matches(item.path) ||
+          item.path.contains("/tv/", true) || item.path.contains("/series/", true) || item.path.contains("/shows/", true)
+        val isOtherVideo = item.path.contains("/dcim/", true) || item.path.contains("/camera/", true) || item.path.contains("whatsapp video", true)
         val matchesCategory = when (category) {
-          LibraryCategory.Movies -> !isShow
+          LibraryCategory.Movies -> !isShow && !isOtherVideo
           LibraryCategory.Shows -> isShow
+          LibraryCategory.OtherVideos -> isOtherVideo
           else -> true
         }
-        matchesCategory && (query.isBlank() || item.title.contains(query, true) || item.subtitle.contains(query, true) || item.path.contains(query, true))
+        val matchesGroup = selectedGroup == null || groupName(item, category) == selectedGroup
+        matchesCategory && matchesGroup &&
+          (query.isBlank() || item.title.contains(query, true) || item.subtitle.contains(query, true) || item.path.contains(query, true))
       }
+    }
+
+    val cloudFilter = when {
+      category == LibraryCategory.VideoFolders -> 4
+      section == MediaSection.Videos -> 1
+      section == MediaSection.Music -> 3
+      else -> 2
     }
 
     Scaffold(
       topBar = {
         TopAppBar(
-          title = { Text("Library", fontWeight = FontWeight.SemiBold) },
+          title = { Text(section.title, fontWeight = FontWeight.SemiBold) },
           actions = {
-            IconButton(onClick = { backstack.add(PCloudScreen) }) {
-              Icon(Icons.TwoTone.Cloud, contentDescription = "Open pCloud library")
-            }
+            TextButton(onClick = { refreshKey++ }) { Text("Refresh") }
             IconButton(onClick = { showSearch = !showSearch; if (!showSearch) query = "" }) {
               Icon(Icons.TwoTone.Search, contentDescription = "Search media")
             }
@@ -184,11 +209,15 @@ object MediaLibraryScreen : Screen {
       },
     ) { padding ->
       Column(Modifier.fillMaxSize().padding(padding)) {
-        ScrollableTabRow(selectedTabIndex = categoryIndex, edgePadding = 16.dp) {
-          LibraryCategory.entries.forEachIndexed { index, item ->
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          FilterChip(selected = sourceIndex == 0, onClick = { sourceIndex = 0; selectedGroup = null }, label = { Text("Local storage") })
+          FilterChip(selected = sourceIndex == 1, onClick = { sourceIndex = 1; selectedGroup = null }, label = { Text("pCloud") })
+        }
+        ScrollableTabRow(selectedTabIndex = safeCategoryIndex, edgePadding = 16.dp) {
+          categories.forEachIndexed { index, item ->
             Tab(
-              selected = categoryIndex == index,
-              onClick = { categoryIndex = index; query = ""; showSearch = false },
+              selected = safeCategoryIndex == index,
+              onClick = { categoryIndex = index; query = ""; selectedGroup = null; showSearch = false },
               text = { Text(item.title) },
             )
           }
@@ -202,20 +231,26 @@ object MediaLibraryScreen : Screen {
             singleLine = true,
           )
         }
+        selectedGroup?.let { group ->
+          TextButton(onClick = { selectedGroup = null }) { Text("← ${category.title} · $group") }
+        }
 
-        when {
-          category == LibraryCategory.Folders -> app.marlboroadvance.mpvex.ui.browser.folderlist.FolderListScreen.Content()
-          !hasMediaAccess -> Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+        if (sourceIndex == 1) {
+          Box(Modifier.fillMaxSize().weight(1f)) { PCloudScreen.ContentFor(cloudFilter) }
+        } else when {
+          section == MediaSection.Videos && category == LibraryCategory.VideoFolders -> app.marlboroadvance.mpvex.ui.browser.folderlist.FolderListScreen.Content()
+          section == MediaSection.Music && category == LibraryCategory.Playlists -> app.marlboroadvance.mpvex.ui.browser.playlist.PlaylistScreen.Content()
+          !hasMediaAccess -> Box(Modifier.fillMaxSize().weight(1f).padding(24.dp), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
               Text("Allow media access to build your library", style = MaterialTheme.typography.titleMedium)
               Spacer(Modifier.height(12.dp))
               Button(onClick = { permissionState.launchMultiplePermissionRequest() }) { Text("Allow access") }
             }
           }
-          loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+          loading -> Box(Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
             androidx.compose.material3.CircularProgressIndicator()
           }
-          filtered.isEmpty() -> Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+          filtered.isEmpty() -> Box(Modifier.fillMaxSize().weight(1f).padding(24.dp), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
               Icon(categoryIcon(category), contentDescription = null, modifier = Modifier.size(44.dp), tint = MaterialTheme.colorScheme.primary)
               Spacer(Modifier.height(12.dp))
@@ -223,7 +258,17 @@ object MediaLibraryScreen : Screen {
               Text("Media on this device will appear here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
           }
-          category == LibraryCategory.Photos -> LazyVerticalGrid(
+          section == MediaSection.Photos && selectedGroup == null -> LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            items(groupedMedia(filtered, category), key = { it.first }) { (name, files) ->
+              GroupCard(name, files.size, categoryIcon(category)) { selectedGroup = name }
+            }
+          }
+          section == MediaSection.Photos -> LazyVerticalGrid(
+            modifier = Modifier.weight(1f),
             columns = GridCells.Adaptive(118.dp),
             contentPadding = PaddingValues(10.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -233,7 +278,17 @@ object MediaLibraryScreen : Screen {
               PhotoTile(filtered[index], onClick = { selectedPhoto = filtered[index] })
             }
           }
-          category == LibraryCategory.Music -> LazyColumn(
+          section == MediaSection.Music && category in listOf(LibraryCategory.Albums, LibraryCategory.Artists, LibraryCategory.Genres) && selectedGroup == null -> LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            items(groupedMedia(filtered, category), key = { it.first }) { (name, files) ->
+              GroupCard(name, files.size, categoryIcon(category)) { selectedGroup = name }
+            }
+          }
+          section == MediaSection.Music -> LazyColumn(
+            modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
           ) {
@@ -242,6 +297,7 @@ object MediaLibraryScreen : Screen {
             }
           }
           else -> LazyColumn(
+            modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
           ) {
@@ -253,39 +309,68 @@ object MediaLibraryScreen : Screen {
       }
     }
 
-    selectedPhoto?.let { photo ->
-      PhotoViewer(photo, onDismiss = { selectedPhoto = null })
+    selectedPhoto?.let { photo -> PhotoViewer(photo, onDismiss = { selectedPhoto = null }) }
+  }
+}
+
+private fun categoriesFor(section: MediaSection): List<LibraryCategory> = when (section) {
+  MediaSection.Videos -> listOf(LibraryCategory.Movies, LibraryCategory.Shows, LibraryCategory.OtherVideos, LibraryCategory.VideoFolders)
+  MediaSection.Music -> listOf(LibraryCategory.Songs, LibraryCategory.Albums, LibraryCategory.Artists, LibraryCategory.Genres, LibraryCategory.Playlists)
+  MediaSection.Photos -> listOf(LibraryCategory.PhotoAlbums, LibraryCategory.PhotoFolders, LibraryCategory.PhotoYears)
+}
+
+private fun groupName(item: LibraryMedia, category: LibraryCategory): String = when (category) {
+  LibraryCategory.Albums -> item.album.ifBlank { "Unknown album" }
+  LibraryCategory.Artists -> item.artist.ifBlank { "Unknown artist" }
+  LibraryCategory.Genres -> item.genres.firstOrNull() ?: "Unknown genre"
+  LibraryCategory.PhotoAlbums -> item.subtitle.ifBlank { "Other" }
+  LibraryCategory.PhotoFolders -> item.path.substringBeforeLast('/', item.subtitle).trim('/').ifBlank { "Other" }
+  LibraryCategory.PhotoYears -> item.year?.toString() ?: "Unknown year"
+  else -> ""
+}
+
+private fun groupedMedia(items: List<LibraryMedia>, category: LibraryCategory): List<Pair<String, List<LibraryMedia>>> =
+  items.groupBy { groupName(it, category) }.toList().sortedBy { it.first.lowercase() }
+
+@Composable
+private fun GroupCard(name: String, count: Int, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+  Card(onClick = onClick, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+      Icon(icon, contentDescription = null, modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.primary)
+      Text(name, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+      Text("$count", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
   }
 }
 
 private fun categoryIcon(category: LibraryCategory) = when (category) {
-  LibraryCategory.Photos -> Icons.TwoTone.Image
-  LibraryCategory.Music -> Icons.TwoTone.MusicNote
-  LibraryCategory.Folders -> Icons.TwoTone.Album
+  LibraryCategory.PhotoAlbums, LibraryCategory.PhotoFolders, LibraryCategory.PhotoYears -> Icons.TwoTone.Image
+  LibraryCategory.Songs, LibraryCategory.Albums, LibraryCategory.Artists, LibraryCategory.Genres, LibraryCategory.Playlists -> Icons.TwoTone.MusicNote
+  LibraryCategory.VideoFolders -> Icons.TwoTone.Album
   else -> Icons.TwoTone.VideoLibrary
 }
 
-private suspend fun loadMedia(context: android.content.Context, category: LibraryCategory): List<LibraryMedia> = try {
+private suspend fun loadMedia(context: android.content.Context, section: MediaSection): List<LibraryMedia> = try {
   val resolver = context.contentResolver
-  val (collection, projection, type) = when (category) {
-    LibraryCategory.Photos -> Triple(
+  val (collection, projection, type) = when (section) {
+    MediaSection.Photos -> Triple(
       MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-      arrayOf(MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME, MediaStore.Images.Media.BUCKET_DISPLAY_NAME, MediaStore.Images.Media.MIME_TYPE, MediaStore.Images.Media.DATE_ADDED, MediaStore.Images.Media.DATA),
+      arrayOf(MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME, MediaStore.Images.Media.BUCKET_DISPLAY_NAME, MediaStore.Images.Media.MIME_TYPE, MediaStore.Images.Media.DATE_ADDED, MediaStore.Images.Media.DATA, MediaStore.Images.Media.DATE_TAKEN),
       "photo",
     )
-    LibraryCategory.Music -> Triple(
+    MediaSection.Music -> Triple(
       MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
       arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.ALBUM_ID, MediaStore.Audio.Media.MIME_TYPE, MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.DATA, MediaStore.Audio.Media.IS_MUSIC),
       "audio",
     )
-    else -> Triple(
+    MediaSection.Videos -> Triple(
       MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
       arrayOf(MediaStore.Video.Media._ID, MediaStore.Video.Media.DISPLAY_NAME, MediaStore.Video.Media.BUCKET_DISPLAY_NAME, MediaStore.Video.Media.MIME_TYPE, MediaStore.Video.Media.DURATION, MediaStore.Video.Media.DATA, MediaStore.Video.Media.DATE_ADDED),
       "video",
     )
   }
   val results = mutableListOf<LibraryMedia>()
+  val genresByTrack = if (type == "audio") loadAudioGenres(resolver) else emptyMap()
   resolver.query(collection, projection, if (type == "audio") "${MediaStore.Audio.Media.IS_MUSIC} != 0" else null, null, if (type == "audio") "${MediaStore.Audio.Media.ARTIST} COLLATE NOCASE, ${MediaStore.Audio.Media.ALBUM} COLLATE NOCASE, ${MediaStore.Audio.Media.TITLE} COLLATE NOCASE" else "${MediaStore.MediaColumns.DATE_ADDED} DESC")?.use { cursor ->
     while (cursor.moveToNext()) {
       val id = cursor.getLong(0)
@@ -296,7 +381,10 @@ private suspend fun loadMedia(context: android.content.Context, category: Librar
           val folder = cursor.getString(2).orEmpty()
           val mime = cursor.getString(3).orEmpty()
           val path = cursor.getString(5).orEmpty()
-          results += LibraryMedia(id, title, folder, uri, mime, path = path)
+          val dateTaken = cursor.getLong(6)
+          val yearTimestamp = if (dateTaken > 0L) dateTaken else cursor.getLong(4) * 1000L
+          val year = java.util.Calendar.getInstance().apply { timeInMillis = yearTimestamp }.get(java.util.Calendar.YEAR)
+          results += LibraryMedia(id, title, folder, uri, mime, path = path, year = year.takeIf { year > 1970 })
         }
         "audio" -> {
           val artist = cursor.getString(2)?.takeUnless { it == "<unknown>" }.orEmpty()
@@ -305,7 +393,19 @@ private suspend fun loadMedia(context: android.content.Context, category: Librar
           val mime = cursor.getString(5).orEmpty()
           val duration = cursor.getLong(6)
           val path = cursor.getString(7).orEmpty()
-          results += LibraryMedia(id, title, listOf(artist, album).filter(String::isNotBlank).joinToString(" · "), uri, mime, duration, path, albumId)
+          results += LibraryMedia(
+            id = id,
+            title = title,
+            subtitle = listOf(artist, album).filter(String::isNotBlank).joinToString(" · "),
+            uri = uri,
+            mimeType = mime,
+            duration = duration,
+            path = path,
+            albumId = albumId,
+            artist = artist,
+            album = album,
+            genres = genresByTrack[id].orEmpty(),
+          )
         }
         else -> {
           val folder = cursor.getString(2).orEmpty()
@@ -322,11 +422,35 @@ private suspend fun loadMedia(context: android.content.Context, category: Librar
   emptyList()
 }
 
+private fun loadAudioGenres(resolver: android.content.ContentResolver): Map<Long, Set<String>> = runCatching {
+  val result = mutableMapOf<Long, MutableSet<String>>()
+  val genresUri = MediaStore.Audio.Genres.getContentUri("external")
+  resolver.query(
+    genresUri,
+    arrayOf(MediaStore.Audio.Genres._ID, MediaStore.Audio.Genres.NAME),
+    null,
+    null,
+    "${MediaStore.Audio.Genres.NAME} COLLATE NOCASE",
+  )?.use { genres ->
+    while (genres.moveToNext()) {
+      val genreId = genres.getLong(0)
+      val name = genres.getString(1)?.takeIf(String::isNotBlank) ?: continue
+      val membersUri = MediaStore.Audio.Genres.Members.getContentUri("external", genreId)
+      resolver.query(membersUri, arrayOf(MediaStore.Audio.Media._ID), null, null, null)?.use { members ->
+        while (members.moveToNext()) {
+          result.getOrPut(members.getLong(0)) { mutableSetOf() }.add(name)
+        }
+      }
+    }
+  }
+  result.mapValues { it.value.toSet() }
+}.getOrDefault(emptyMap())
+
 @Composable
 private fun MediaRow(item: LibraryMedia, category: LibraryCategory, onClick: () -> Unit) {
   Card(onClick = onClick, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
     Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-      if (category == LibraryCategory.Movies || category == LibraryCategory.Shows) VideoPoster(item)
+      if (category == LibraryCategory.Movies || category == LibraryCategory.Shows || category == LibraryCategory.OtherVideos) VideoPoster(item)
       else Icon(categoryIcon(category), contentDescription = null, modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.primary)
       Column(Modifier.weight(1f)) {
         Text(item.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
