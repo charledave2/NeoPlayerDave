@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
@@ -66,7 +67,7 @@ fun MusicPlayerControls(
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-      IconButton(onClick = onBackPress) { Icon(Icons.AutoMirrored.TwoTone.ArrowBack, contentDescription = "Back") }
+      IconButton(onClick = onBackPress) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
       Text("Now playing", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     }
     Spacer(Modifier.weight(0.6f))
