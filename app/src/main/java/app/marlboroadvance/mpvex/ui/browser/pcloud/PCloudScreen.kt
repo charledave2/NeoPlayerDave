@@ -78,7 +78,13 @@ import java.net.URL
 object PCloudScreen : Screen {
   @OptIn(ExperimentalMaterial3Api::class)
   @Composable
-  override fun Content() {
+  override fun Content() = ContentInternal(embedded = false, initialFilter = 0)
+
+  @Composable
+  fun ContentFor(filter: Int) = ContentInternal(embedded = true, initialFilter = filter)
+
+  @Composable
+  private fun ContentInternal(embedded: Boolean, initialFilter: Int) {
     val backstack = LocalBackStack.current
     val context = androidx.compose.ui.platform.LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -94,7 +100,7 @@ object PCloudScreen : Screen {
     var accountMessage by remember { mutableStateOf<String?>(null) }
     var refreshCounter by remember { mutableIntStateOf(0) }
     var libraryRefreshLoaded by remember { mutableIntStateOf(-1) }
-    var mediaFilter by rememberSaveable { mutableIntStateOf(0) }
+    var mediaFilter by rememberSaveable(embedded, initialFilter) { mutableIntStateOf(initialFilter.coerceIn(0, 4)) }
     var selectedPhoto by remember { mutableStateOf<Pair<String, String>?>(null) }
     var libraryEntries by remember { mutableStateOf(emptyList<PCloudEntry>()) }
     var query by rememberSaveable { mutableStateOf("") }
@@ -106,12 +112,12 @@ object PCloudScreen : Screen {
         folderStack = folderStack.dropLast(1)
         currentFolderId = previous.first
         currentFolderName = previous.second
-      } else {
+      } else if (!embedded) {
         backstack.removeLastOrNull()
       }
     }
 
-    BackHandler { goBack() }
+    BackHandler(enabled = !embedded || (mediaFilter == 4 && folderStack.isNotEmpty())) { goBack() }
 
     DisposableEffect(lifecycleOwner) {
       val observer = LifecycleEventObserver { _, event ->
@@ -161,7 +167,7 @@ object PCloudScreen : Screen {
 
     Scaffold(
       topBar = {
-        TopAppBar(
+        if (!embedded) TopAppBar(
           title = {
             Text(
               text = if (mediaFilter == 4) currentFolderName else "pCloud · ${listOf("All", "Videos", "Photos", "Music")[mediaFilter]}",
@@ -266,12 +272,30 @@ object PCloudScreen : Screen {
           verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
           item {
+            if (embedded && mediaFilter == 4 && folderStack.isNotEmpty()) {
+              TextButton(onClick = { goBack() }) { Text("← Parent folder") }
+            }
             accountMessage?.let {
               Text(
                 text = it,
                 color = MaterialTheme.colorScheme.primary,
                 style = MaterialTheme.typography.bodyMedium,
               )
+            }
+            if (embedded) {
+              TextButton(
+                onClick = {
+                  PCloudAuth.signOut(context)
+                  connected = false
+                  entries = emptyList()
+                  libraryEntries = emptyList()
+                  libraryRefreshLoaded = -1
+                  folderStack = emptyList()
+                  currentFolderId = 0L
+                  currentFolderName = "pCloud"
+                  error = null
+                },
+              ) { Text("Disconnect pCloud") }
             }
             if (mediaFilter == 4) {
               Text(
@@ -286,9 +310,11 @@ object PCloudScreen : Screen {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
             }
-            ScrollableTabRow(selectedTabIndex = mediaFilter, edgePadding = 0.dp) {
-              listOf("All", "Videos", "Photos", "Music", "Folders").forEachIndexed { index, label ->
-                Tab(selected = mediaFilter == index, onClick = { mediaFilter = index; query = "" }, text = { Text(label) })
+            if (!embedded) {
+              ScrollableTabRow(selectedTabIndex = mediaFilter, edgePadding = 0.dp) {
+                listOf("All", "Videos", "Photos", "Music", "Folders").forEachIndexed { index, label ->
+                  Tab(selected = mediaFilter == index, onClick = { mediaFilter = index; query = "" }, text = { Text(label) })
+                }
               }
             }
             if (showSearch) {
