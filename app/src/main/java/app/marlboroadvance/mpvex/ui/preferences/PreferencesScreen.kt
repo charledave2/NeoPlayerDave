@@ -16,7 +16,9 @@ import androidx.compose.material.icons.outlined.Audiotrack
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Gesture
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Lan
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PlayCircle
@@ -38,6 +40,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.marlboroadvance.mpvex.R
 import app.marlboroadvance.mpvex.presentation.Screen
+import app.marlboroadvance.mpvex.ui.browser.networkstreaming.NetworkStreamingScreen
+import app.marlboroadvance.mpvex.ui.browser.recentlyplayed.RecentlyPlayedScreen
 import app.marlboroadvance.mpvex.ui.utils.LocalBackStack
 import kotlinx.serialization.Serializable
 import me.zhanghai.compose.preference.Preference
@@ -79,6 +83,28 @@ object PreferencesScreen : Screen {
               .fillMaxSize()
               .padding(padding),
         ) {
+          item {
+            PreferenceSectionHeader(title = "Library shortcuts")
+          }
+
+          item {
+            PreferenceCard {
+              Preference(
+                title = { Text("Recently played") },
+                summary = { Text("Continue videos and music you opened recently", color = MaterialTheme.colorScheme.outline) },
+                icon = { Icon(Icons.Outlined.History, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                onClick = { backstack.add(RecentlyPlayedScreen) },
+              )
+              PreferenceDivider()
+              Preference(
+                title = { Text("Network sources") },
+                summary = { Text("WebDAV, Streamlink, and pCloud connections", color = MaterialTheme.colorScheme.outline) },
+                icon = { Icon(Icons.Outlined.Lan, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                onClick = { backstack.add(NetworkStreamingScreen) },
+              )
+            }
+          }
+
           // Search bar - full width, prominent placement
           item {
             Surface(
