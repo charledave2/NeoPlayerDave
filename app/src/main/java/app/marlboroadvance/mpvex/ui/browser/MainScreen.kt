@@ -284,7 +284,7 @@ object MainScreen : Screen {
               0 -> MediaLibraryScreen.Content(MediaSection.Videos)
               1 -> MediaLibraryScreen.Content(MediaSection.Music)
               2 -> MediaLibraryScreen.Content(MediaSection.Photos)
-              3 -> PreferencesScreen.Content()
+              3 -> PreferencesScreen.Content(asRoot = true)
             }
           }
         }
