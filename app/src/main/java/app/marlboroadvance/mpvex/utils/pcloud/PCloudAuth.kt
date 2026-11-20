@@ -285,18 +285,21 @@ object PCloudApi {
   /** Returns every supported media file in the account tree with its relative folder path. */
   suspend fun listMediaLibrary(context: Context): List<PCloudEntry> =
     withContext(Dispatchers.IO) {
+      // pCloud rejects recursive listing when folderid=0. Read the root once,
+      // then walk each child folder explicitly so OAuth users can scan a library.
       val response = call(
         context,
         "listfolder",
         "folderid" to "0",
-        "recursive" to "1",
       )
       val root = response.optJSONObject("metadata")
         ?: throw IOException("pCloud returned no library information.")
       val result = mutableListOf<PCloudEntry>()
+      data class FolderToScan(val id: Long, val path: String)
+      val folders = java.util.ArrayDeque<FolderToScan>()
 
-      fun visit(folder: JSONObject, parentPath: String, parentFolderId: Long) {
-        val contents = folder.optJSONArray("contents") ?: return
+      fun collect(contents: org.json.JSONArray?, parentPath: String, parentFolderId: Long) {
+        if (contents == null) return
         for (index in 0 until contents.length()) {
           val item = contents.optJSONObject(index) ?: continue
           val name = item.optString("name", "Untitled")
@@ -309,7 +312,9 @@ object PCloudApi {
           } ?: continue
 
           if (isFolder) {
-            visit(item, path, id)
+            val nestedContents = item.optJSONArray("contents")
+            if (nestedContents != null) collect(nestedContents, path, id)
+            else folders.addLast(FolderToScan(id, path))
           } else if (isSupportedMedia(name)) {
             result += PCloudEntry(
               name = name,
@@ -325,7 +330,19 @@ object PCloudApi {
         }
       }
 
-      visit(root, "", 0L)
+      collect(root.optJSONArray("contents"), "", 0L)
+      while (folders.isNotEmpty()) {
+        val folder = folders.removeFirst()
+        val folderResponse = call(
+          context,
+          "listfolder",
+          "folderid" to folder.id.toString(),
+          "recursive" to "1",
+        )
+        val metadata = folderResponse.optJSONObject("metadata")
+          ?: throw IOException("pCloud returned no information for ${folder.path}.")
+        collect(metadata.optJSONArray("contents"), folder.path, folder.id)
+      }
       result.sortedWith(compareBy<PCloudEntry> { it.name.lowercase() }.thenBy { it.path.lowercase() })
     }
 
@@ -385,6 +402,7 @@ object PCloudApi {
         if (result == 1000) PCloudAuth.signOut(context)
         val message = when (result) {
           1000 -> "Your pCloud session ended. Please sign in again."
+          1101 -> "pCloud could not read this library request. Try Refresh or browse the Folders view."
           2003 -> "pCloud denied access to this file or folder."
           2005, 2009 -> "This pCloud item could not be found."
           else -> "pCloud returned error " + result + "."
